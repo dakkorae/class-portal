@@ -5,7 +5,7 @@
 ## 한눈에
 - 학급 포털 웹앱. 기획서: 우리 반 학급 포털 PRD (claude.ai 문서). MVP = 로그인(관리자·교사·학생) + 링크·지금 열기 + 과제 체크 + 공지 + TV 화면.
 - React 19 + TypeScript + Vite 6 + Tailwind 4, PWA(`public/sw.js`, `manifest.webmanifest`). 서버는 Firebase Spark(Firestore 서울 + 익명 로그인). Functions·Storage 쓰지 않음.
-- Firebase 프로젝트 `uriban-portal`(계정 dakkorae), 배포 주소 https://uriban-portal.web.app . 저장소 `dakkorae/potal` 의 `main`.
+- Firebase 프로젝트 `uriban-portal`(계정 dakkorae), 배포 주소 https://uriban-portal.web.app . 저장소 `dakkorae/class-portal` 의 `main` (예전 이름 `potal` 에서 바뀜. 작업이 끝나면 `main` 에 바로 커밋·푸시).
 - 배포: `npm run build && npx firebase-tools deploy --only firestore:rules,auth,hosting` (규칙을 바꾸면 이 명령으로 같이 올라감).
 - 주소로 화면 나누기(`src/App.tsx`): `/` 학생, `#teacher`, `#admin`, `#tv/학급코드/비밀값`. 교사·관리자·TV 화면은 `lazy()` 로 따로 내려받음.
 - IB 대시보드(dakkorae/IBL)의 로그인·개설 코드·재설정 코드·규칙 시험 방식을 가져와 고쳐 씀.
