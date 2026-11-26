@@ -1,20 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Bell, CalendarDays, Check, ExternalLink, Home, ListChecks, LogOut, Megaphone, Pin, Sparkles, SquareArrowOutUpRight, UserRound } from 'lucide-react';
+import { CalendarDays, Check, ExternalLink, Home, ListChecks, LogOut, Megaphone, Sparkles, SquareArrowOutUpRight, UserRound } from 'lucide-react';
 import { Api, counted, emptyLive } from '../lib/api';
 import { errorMessage, getApi } from '../lib/cloud';
-import { addDays, formatDay, formatLongToday, formatTime, today } from '../lib/dates';
-import { progressOf } from '../lib/mission';
+import { addDays, formatDay, formatLongToday, today } from '../lib/dates';
+import { itemsFor, progressOf } from '../lib/mission';
 import { rolesOfStudent } from '../lib/roles';
-import { activeNow, isTarget, visibleNotices } from '../lib/visible';
-import { CalEvent, LINK_CATEGORIES, LinkItem, LiveDoc,  Notice, NoticeSummary, RolesDoc, SchoolInfo, Student, StudentSession, StudentStatus, Task, linkCategory, markKey } from '../lib/types';
-import { Badge, Button, Card, Empty, ErrorNote, LinkIcon, Modal, Progress, SectionTitle, Spinner, cx, toast } from '../ui/kit';
+import { activeNow, isTarget } from '../lib/visible';
+import { CalEvent, LINK_CATEGORIES, LinkItem, LiveDoc,  RolesDoc, SchoolInfo, Student, StudentSession, StudentStatus, Task, linkCategory, markKey } from '../lib/types';
+import { Badge, Button, Card, Empty, ErrorNote, LinkIcon, Progress, SectionTitle, Spinner, cx, toast } from '../ui/kit';
 import { KIND_TONE, MonthGrid, itemsByDay, monthRange } from '../ui/calendar';
 import { SchoolToday, useSchoolSchedule } from '../ui/school';
-import { TagBadge } from '../ui/tags';
 import DateNav from '../ui/DateNav';
 import { ThemeCard } from '../ui/ThemePicker';
 
-type Tab = 'home' | 'links' | 'calendar' | 'notices' | 'me';
+type Tab = 'home' | 'links' | 'calendar' | 'me';
 
 export default function StudentPortal({ session, onSignedOut }: { session: StudentSession; onSignedOut: (relogin: boolean) => void }) {
   const { classId, sid } = session;
@@ -29,7 +28,6 @@ export default function StudentPortal({ session, onSignedOut }: { session: Stude
   const [school, setSchool] = useState<SchoolInfo | null>(null);
   const [roles, setRoles] = useState<RolesDoc | null>(null);
   const [events, setEvents] = useState<CalEvent[]>([]);
-  const [openNotice, setOpenNotice] = useState<NoticeSummary | null>(null);
   const [day, setDay] = useState(today());
   const [error, setError] = useState('');
   const [, tick] = useState(0);
@@ -73,8 +71,6 @@ export default function StudentPortal({ session, onSignedOut }: { session: Stude
     };
   }, [api, ok, classId, sid]);
 
-  const notices = visibleNotices(live);
-  const unread = notices.filter((n) => !status.reads[n.id]).length;
   const nowLink = activeNow(live);
   const t0 = today();
   const myTasks = useMemo(() => tasks.filter((t) => isTarget(t, sid)), [tasks, sid]);
@@ -92,7 +88,7 @@ export default function StudentPortal({ session, onSignedOut }: { session: Stude
     const done = !counted(cur?.state);
     try {
       await api.markTask(classId, sid, key, cur, done);
-      const after = progressOf(t, { ...status, tasks: { ...status.tasks, [key]: { state: done ? 'done' : 'todo', at: Date.now() } } });
+      const after = progressOf(t, { ...status, tasks: { ...status.tasks, [key]: { state: done ? 'done' : 'todo', at: Date.now() } } }, sid);
       toast(done ? (after.all ? `‘${t.title}’ 미션 완료! 🎉` : '완료!') : '되돌렸어요.');
     } catch (e) {
       toast(errorMessage(e));
@@ -117,7 +113,6 @@ export default function StudentPortal({ session, onSignedOut }: { session: Stude
     { id: 'home', label: '홈', icon: <Home size={22} /> },
     { id: 'links', label: '바로가기', icon: <SquareArrowOutUpRight size={22} /> },
     { id: 'calendar', label: '달력', icon: <CalendarDays size={22} /> },
-    { id: 'notices', label: '공지', icon: <Megaphone size={22} />, dot: unread > 0 },
     { id: 'me', label: '나', icon: <UserRound size={22} /> }
   ];
 
@@ -180,19 +175,6 @@ export default function StudentPortal({ session, onSignedOut }: { session: Stude
               </a>
             )}
 
-            {notices.some((n) => n.pinned) && (
-              <section>
-                <SectionTitle icon={<Pin size={18} />} title="꼭 볼 공지" />
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {notices
-                    .filter((n) => n.pinned)
-                    .map((n) => (
-                      <NoticeRow key={n.id} n={n} unread={!status.reads[n.id]} onOpen={() => setOpenNotice(n)} />
-                    ))}
-                </div>
-              </section>
-            )}
-
             {myRoles.length > 0 && (
               <Card className="p-4 sm:p-5 flex items-center gap-4 bg-gradient-to-br from-brand-soft to-surface">
                 <span className="text-4xl" aria-hidden>
@@ -205,31 +187,54 @@ export default function StudentPortal({ session, onSignedOut }: { session: Stude
               </Card>
             )}
 
-            <section>
+            <section className="space-y-3">
               <SectionTitle
                 icon={<ListChecks size={18} />}
-                title={day === t0 ? '오늘의 미션' : '미션'}
+                title={day === t0 ? '오늘의 공지 및 미션' : '공지 및 미션'}
                 sub={(() => {
-                  const left = todo.reduce((n, t) => n + (progressOf(t, status).total - progressOf(t, status).done), 0);
-                  return todo.length ? (left ? `체크할 일 ${left}개 남았어요` : '모두 끝냈어요! 🎉') : undefined;
+                  const left = todo.reduce((n, t) => n + (progressOf(t, status, sid).total - progressOf(t, status, sid).done), 0);
+                  return left ? `체크할 일 ${left}개 남았어요` : todo.some((t) => progressOf(t, status, sid).total) ? '할 일을 모두 끝냈어요! 🎉' : undefined;
                 })()}
               />
-              <div className="mb-3">
-                <DateNav value={day} onChange={setDay} marked={marked} />
-              </div>
-              {todo.length === 0 ? (
-                <Card>
-                  <Empty icon={<Check size={22} />} title={day === t0 ? '오늘은 미션이 없어요' : '이날은 미션이 없어요'}>
-                    선생님이 미션을 내면 여기에 보여요.
-                  </Empty>
-                </Card>
-              ) : (
-                <div className="grid gap-3 lg:grid-cols-2">
-                  {todo.map((t) => (
-                    <MissionCard key={t.id} task={t} status={status} onToggle={(id) => toggleItem(t, id)} />
-                  ))}
-                </div>
-              )}
+              <DateNav value={day} onChange={setDay} marked={marked} />
+              {(() => {
+                const notices = todo.filter((t) => t.notice);
+                const tasks = todo.filter((t) => itemsFor(t, sid).length > 0);
+                if (!notices.length && !tasks.length)
+                  return (
+                    <Card>
+                      <Empty icon={<Check size={22} />} title={day === t0 ? '오늘은 공지와 미션이 없어요' : '이날은 공지와 미션이 없어요'}>
+                        선생님이 올리면 여기에 보여요.
+                      </Empty>
+                    </Card>
+                  );
+                return (
+                  <>
+                    {notices.length > 0 && (
+                      <div className="space-y-3">
+                        {notices.map((t) => (
+                          <Card key={t.id} className="p-4 sm:p-5 bg-gradient-to-br from-brand-soft/70 to-surface">
+                            <p className="text-sm font-bold text-brand-strong flex items-center gap-1.5 mb-1.5">
+                              <Megaphone size={16} /> 공지 · {t.title}
+                            </p>
+                            <p className="text-[17px] leading-relaxed text-ink whitespace-pre-wrap break-words">{t.notice}</p>
+                          </Card>
+                        ))}
+                      </div>
+                    )}
+                    {tasks.length > 0 && (
+                      <div>
+                        {notices.length > 0 && <h3 className="font-bold text-ink-2 mb-2 mt-1 flex items-center gap-1.5"><ListChecks size={17} /> 해야 할 일</h3>}
+                        <div className="grid gap-3 lg:grid-cols-2">
+                          {tasks.map((t) => (
+                            <MissionCard key={t.id} task={t} sid={sid} status={status} onToggle={(id) => toggleItem(t, id)} />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </section>
 
             <SchoolToday school={school} day={day} />
@@ -262,23 +267,6 @@ export default function StudentPortal({ session, onSignedOut }: { session: Stude
 
         {tab === 'calendar' && <CalendarTab events={events} school={school} />}
 
-        {tab === 'notices' && (
-          <section>
-            <SectionTitle icon={<Megaphone size={18} />} title="공지" sub={unread ? `읽지 않은 공지 ${unread}개` : '모두 읽었어요'} />
-            {notices.length === 0 ? (
-              <Card>
-                <Empty icon={<Bell size={22} />} title="아직 공지가 없어요" />
-              </Card>
-            ) : (
-              <div className="space-y-2.5">
-                {notices.map((n) => (
-                  <NoticeRow key={n.id} n={n} unread={!status.reads[n.id]} onOpen={() => setOpenNotice(n)} />
-                ))}
-              </div>
-            )}
-          </section>
-        )}
-
         {tab === 'me' && api && <MeTab session={session} me={me} onSignOut={async () => {
           await api.leaveClass(classId);
           onSignedOut(false);
@@ -286,7 +274,7 @@ export default function StudentPortal({ session, onSignedOut }: { session: Stude
       </main>
 
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-surface/90 backdrop-blur-xl border-t border-line pb-[env(safe-area-inset-bottom)]" aria-label="메뉴">
-        <div className="grid grid-cols-5 max-w-xl mx-auto">
+        <div className="grid grid-cols-4 max-w-lg mx-auto">
           {nav.map((n) => (
             <button
               key={n.id}
@@ -303,22 +291,12 @@ export default function StudentPortal({ session, onSignedOut }: { session: Stude
         </div>
       </nav>
 
-      {openNotice && api && (
-        <NoticeModal
-          api={api}
-          classId={classId}
-          summary={openNotice}
-          read={!!status.reads[openNotice.id]}
-          onRead={() => api.markRead(classId, sid, openNotice.id).catch((e) => toast(errorMessage(e)))}
-          onClose={() => setOpenNotice(null)}
-        />
-      )}
     </div>
   );
 }
 
-function MissionCard({ task, status, onToggle }: { task: Task; status: StudentStatus; onToggle: (itemId: string) => void }) {
-  const p = progressOf(task, status);
+function MissionCard({ task, sid, status, onToggle }: { task: Task; sid: string; status: StudentStatus; onToggle: (itemId: string) => void }) {
+  const p = progressOf(task, status, sid);
   return (
     <Card className={cx('p-4 sm:p-5 transition', p.all && 'bg-ok-soft/50 border-ok/25')}>
       <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
@@ -327,7 +305,7 @@ function MissionCard({ task, status, onToggle }: { task: Task; status: StudentSt
       </div>
       <h3 className="text-lg font-bold leading-snug break-words">{task.title}</h3>
       <ul className="mt-3 space-y-2">
-        {task.items.map((i) => {
+        {itemsFor(task, sid).map((i) => {
           const done = counted(status.tasks[markKey(task.id, i.id)]?.state);
           return i.check ? (
             <li key={i.id} className={cx(i.sub && 'pl-6')}>
@@ -401,25 +379,6 @@ function CalendarTab({ events, school }: { events: CalEvent[]; school: SchoolInf
   );
 }
 
-function NoticeRow({ n, unread, onOpen }: { n: NoticeSummary; unread: boolean; onOpen: () => void }) {
-  return (
-    <button type="button" onClick={onOpen} className="w-full text-left cursor-pointer group">
-      <Card className="p-4 flex items-start gap-3 group-hover:border-brand/40 transition">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 mb-1">
-            <TagBadge tag={n.tag} />
-            {n.pinned && <Badge tone="brand" icon={<Pin size={11} />}>고정</Badge>}
-            <span className="text-xs text-ink-3 ml-auto">{formatTime(n.publishAt)}</span>
-          </div>
-          <p className="font-bold text-ink leading-snug">{n.title}</p>
-          {n.snippet && <p className="text-[15px] text-ink-3 mt-0.5 line-clamp-2">{n.snippet}</p>}
-        </div>
-        {unread && <span className="mt-1.5 w-2.5 h-2.5 rounded-full bg-bad shrink-0" aria-label="안 읽음" />}
-      </Card>
-    </button>
-  );
-}
-
 function LinkGrid({ links }: { links: LinkItem[] }) {
   return (
     <div className="grid grid-cols-3 min-[480px]:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
@@ -464,53 +423,6 @@ function LinksTab({ links }: { links: LinkItem[] }) {
         <LinkGrid links={shown} />
       )}
     </section>
-  );
-}
-
-function NoticeModal({ api, classId, summary, read, onRead, onClose }: { api: Api; classId: string; summary: NoticeSummary; read: boolean; onRead: () => void; onClose: () => void }) {
-  const [n, setN] = useState<Notice | null>(null);
-  const [error, setError] = useState('');
-  useEffect(() => {
-    api
-      .getNotice(classId, summary.id)
-      .then((d) => (d ? setN(d) : setError('공지를 열지 못했어요.')))
-      .catch((e) => setError(errorMessage(e)));
-  }, [api, classId, summary.id]);
-
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      title={
-        <span className="flex items-center gap-2">
-          <TagBadge tag={summary.tag} /> 공지
-        </span>
-      }
-      footer={
-        <>
-          <Button size="lg" variant={read ? 'soft' : 'primary'} icon={<Check size={18} />} onClick={read ? onClose : () => (onRead(), onClose())} disabled={!n}>
-            {read ? '확인했어요 ✓' : '확인했어요'}
-          </Button>
-        </>
-      }
-    >
-      <h3 className="text-2xl font-bold tracking-tight leading-snug">{summary.title}</h3>
-      <p className="text-sm text-ink-3 mt-1">{formatTime(summary.publishAt)}</p>
-      <ErrorNote>{error}</ErrorNote>
-      {!n && !error && <Spinner />}
-      {n && (
-        <>
-          <p className="mt-4 text-[17px] leading-relaxed whitespace-pre-wrap text-ink-2">{n.body}</p>
-          {n.imageData?.length > 0 && (
-            <div className="mt-4 grid gap-3">
-              {n.imageData.map((src, i) => (
-                <img key={i} src={src} alt={`공지 그림 ${i + 1}`} className="w-full rounded-2xl border border-line" />
-              ))}
-            </div>
-          )}
-        </>
-      )}
-    </Modal>
   );
 }
 

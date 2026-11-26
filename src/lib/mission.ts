@@ -1,5 +1,5 @@
 // 미션 줄 다루기 (붙여넣기 → 줄 목록, 완료 현황 계산)
-import { MissionItem, StudentStatus, Task, checkItems, markKey } from './types';
+import { MissionItem, StudentStatus, Task, checkItems, itemFor, markKey } from './types';
 import { randomId } from './hash';
 import { counted } from './api';
 
@@ -21,9 +21,20 @@ export function parseLines(text: string): MissionItem[] {
     .filter((i) => i.text);
 }
 
-// 학생 한 명이 미션의 완료 칸을 몇 개 했는지
-export function progressOf(t: Pick<Task, 'id' | 'items'>, st: StudentStatus | undefined) {
-  const checks = checkItems(t);
+// 학생 한 명이 미션의 완료 칸을 몇 개 했는지 (그 학생이 대상인 줄만 셈)
+export function progressOf(t: Pick<Task, 'id' | 'items'>, st: StudentStatus | undefined, sid?: string) {
+  const checks = checkItems(t).filter((i) => !sid || itemFor(i, sid));
   const done = checks.filter((i) => counted(st?.tasks?.[markKey(t.id, i.id)]?.state)).length;
   return { done, total: checks.length, all: checks.length > 0 && done === checks.length };
+}
+
+// 학생에게 보일 줄: 그 학생이 대상인 줄만. 딸린 줄이 모두 빠진 머리 줄(체크 없는 줄)도 뺌
+export function itemsFor(t: Pick<Task, 'items'>, sid: string) {
+  const list = t.items.filter((i) => itemFor(i, sid));
+  return list.filter((i, idx) => {
+    if (i.check || i.sub) return true;
+    const next = list[idx + 1];
+    const hadSubs = t.items[t.items.indexOf(i) + 1]?.sub;
+    return !hadSubs || (next && next.sub);
+  });
 }

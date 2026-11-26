@@ -1,26 +1,26 @@
 import { useState } from 'react';
-import { CalendarDays, ChevronDown, Palette, Eye, EyeOff, LayoutDashboard, ListChecks, LogOut, Megaphone, MonitorUp, Settings2, Sparkles, SquareArrowOutUpRight, UsersRound } from 'lucide-react';
+import { CalendarDays, ChevronDown, Palette, Eye, EyeOff, LayoutDashboard, ListChecks, LogOut, MonitorUp, Settings2, Sparkles, SquareArrowOutUpRight, UsersRound } from 'lucide-react';
 import { Api } from '../lib/api';
-import { loadPref, openBoard, savePref } from '../lib/cloud';
-import { Button, ErrorNote, IconButton, Spinner, cx, toast } from '../ui/kit';
+import { loadPref, savePref } from '../lib/cloud';
+import { Button, ErrorNote, IconButton, Spinner, cx } from '../ui/kit';
 import { DataContext, useClassData } from './data';
 import Dashboard from './Dashboard';
 import LinksPanel from './LinksPanel';
 import MissionsPanel from './MissionsPanel';
-import NoticesPanel from './NoticesPanel';
+import TvToolsPanel from './TvToolsPanel';
 import ClassPanel from './ClassPanel';
 import RolesPanel from './RolesPanel';
 import CalendarPanel from './CalendarPanel';
 import { ThemeCard } from '../ui/ThemePicker';
 import { SectionTitle } from '../ui/kit';
 
-export type Section = 'home' | 'links' | 'tasks' | 'notices' | 'roles' | 'calendar' | 'class' | 'settings';
+export type Section = 'home' | 'tv' | 'links' | 'tasks' | 'roles' | 'calendar' | 'class' | 'settings';
 
 const NAV: { id: Section; label: string; icon: React.ReactNode }[] = [
   { id: 'home', label: '대시보드', icon: <LayoutDashboard size={19} /> },
-  { id: 'tasks', label: '미션', icon: <ListChecks size={19} /> },
+  { id: 'tv', label: 'TV·편의기능', icon: <MonitorUp size={19} /> },
+  { id: 'tasks', label: '공지 및 미션', icon: <ListChecks size={19} /> },
   { id: 'links', label: '바로가기', icon: <SquareArrowOutUpRight size={19} /> },
-  { id: 'notices', label: '공지', icon: <Megaphone size={19} /> },
   { id: 'roles', label: '1인1역', icon: <UsersRound size={19} /> },
   { id: 'calendar', label: '학급 달력', icon: <CalendarDays size={19} /> },
   { id: 'class', label: '학급 관리', icon: <Settings2 size={19} /> },
@@ -46,7 +46,10 @@ export default function Workspace({
   onLogout: (all: boolean) => void;
   onDeleted: () => void;
 }) {
-  const [section, setSection] = useState<Section>(() => loadPref<Section>('section', 'home'));
+  const [section, setSection] = useState<Section>(() => {
+    const v = loadPref<Section>('section', 'home');
+    return NAV.some((n) => n.id === v) ? v : 'home'; // 없어진 메뉴(예전 ‘공지’)면 대시보드로
+  });
   const [privacy, setPrivacy] = useState(() => loadPref('privacy', false));
   const [menu, setMenu] = useState(false);
   const data = useClassData(api, classId, privacy);
@@ -56,10 +59,7 @@ export default function Workspace({
     window.scrollTo({ top: 0 });
   };
 
-  // TV 화면 열기: 오늘 미션을 새 창에 크게 띄움 (판서·타이머·번호 뽑기 함께)
-  const openTv = () => {
-    if (!openBoard(classId)) toast('새 창이 막혔어요. 브라우저 주소창 오른쪽에서 팝업을 허용해 주세요.');
-  };
+  const openTv = () => go('tv');
 
   const name = data.info?.name || savedClasses.find((c) => c.id === classId)?.name || classId;
 
@@ -87,7 +87,6 @@ export default function Workspace({
             ))}
           </nav>
           <div className="mt-auto space-y-1">
-            <SideAction icon={<MonitorUp size={18} />} label="TV 화면 열기" onClick={openTv} />
             <SideAction
               icon={privacy ? <EyeOff size={18} /> : <Eye size={18} />}
               label={privacy ? '가림 모드 켜짐' : '가림 모드'}
@@ -108,7 +107,7 @@ export default function Workspace({
               <div className="flex-1 min-w-0">
                 <ClassSwitcher name={name} classId={classId} saved={savedClasses} open={menu} setOpen={setMenu} onSwitch={onSwitch} onClose={onClose} compact />
               </div>
-              <IconButton label="TV 화면 열기" onClick={openTv}>
+              <IconButton label="TV·편의기능" onClick={openTv}>
                 <MonitorUp size={19} />
               </IconButton>
               <IconButton
@@ -156,7 +155,7 @@ export default function Workspace({
                 {section === 'home' && <Dashboard go={go} />}
                 {section === 'links' && <LinksPanel />}
                 {section === 'tasks' && <MissionsPanel />}
-                {section === 'notices' && <NoticesPanel />}
+                {section === 'tv' && <TvToolsPanel />}
                 {section === 'roles' && <RolesPanel />}
                 {section === 'calendar' && <CalendarPanel />}
                 {section === 'settings' && (

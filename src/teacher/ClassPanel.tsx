@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { ClipboardPaste, Download, ExternalLink, KeyRound, LogOut, QrCode, RefreshCw, Save, Search, School, Settings2, Trash2, TvMinimal, Undo2, UserMinus, Users } from 'lucide-react';
+import { ClipboardPaste, Download, KeyRound, LogOut, QrCode, Save, Search, School, Settings2, Trash2, Undo2, UserMinus, Users } from 'lucide-react';
 import { counted } from '../lib/api';
-import { errorMessage, inviteUrl, tvUrl } from '../lib/cloud';
+import { errorMessage, inviteUrl } from '../lib/cloud';
 import { formatTime, today } from '../lib/dates';
 import { SchoolHit, kindOf, searchSchools } from '../lib/neis';
-import { MAX_STUDENTS, NAME_MAX, SchoolInfo, Student, checkItems, markKey } from '../lib/types';
+import { MAX_STUDENTS, NAME_MAX, SchoolInfo, Student, checkItems, itemFor, markKey } from '../lib/types';
 import { Badge, Button, Card, CopyButton, ErrorNote, Field, IconButton, Input, Modal, SectionTitle, Textarea, cx, toast } from '../ui/kit';
 import { schoolLabel } from '../ui/school';
 import { useData } from './data';
@@ -18,10 +18,6 @@ export default function ClassPanel({ onClassName, onLogout, onDeleted }: { onCla
   const [qr, setQr] = useState(false);
   const [paste, setPaste] = useState(false);
   const [del, setDel] = useState(false);
-  const [token, setToken] = useState('');
-  useEffect(() => {
-    d.api.getTvToken(d.classId).then(setToken).catch(() => undefined);
-  }, [d.api, d.classId]);
 
   const run = async (fn: () => Promise<unknown>, msg?: string) => {
     try {
@@ -32,13 +28,12 @@ export default function ClassPanel({ onClassName, onLogout, onDeleted }: { onCla
     }
   };
 
-  const tv = token ? tvUrl(d.classId, token) : '';
 
   return (
     <div className="space-y-8">
       <SectionTitle icon={<Settings2 size={20} />} title={<span className="text-2xl">학급 관리</span>} />
 
-      <div className="grid lg:grid-cols-2 gap-4">
+      <div className="grid gap-4">
         <Card className="p-5 space-y-4">
           <h3 className="font-bold">학급 정보</h3>
           <div className="flex gap-2 items-end">
@@ -71,27 +66,6 @@ export default function ClassPanel({ onClassName, onLogout, onDeleted }: { onCla
           </div>
         </Card>
 
-        <Card className="p-5 space-y-4">
-          <h3 className="font-bold flex items-center gap-2">
-            <TvMinimal size={18} /> 늘 켜 두는 TV 화면 주소
-          </h3>
-          <p className="text-sm text-ink-3">교실 전자칠판 브라우저에 이 주소를 열어 두면 로그인 없이 공지·미션 완료 인원수·지금 열기 QR이 보여요. 학생 이름은 보이지 않아요. (미션을 크게 띄우려면 메뉴의 ‘TV 화면 열기’ 버튼)</p>
-          <div className="rounded-xl bg-surface-2 border border-line px-3.5 py-3 font-mono text-xs break-all text-ink-2">{tv || '불러오는 중…'}</div>
-          <div className="flex flex-wrap gap-2">
-            <CopyButton text={tv} label="주소 복사" />
-            <Button variant="soft" size="sm" icon={<ExternalLink size={16} />} onClick={() => window.open(tv, '_blank', 'noopener')} disabled={!tv}>
-              열기
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              icon={<RefreshCw size={16} />}
-              onClick={() => confirm('새 주소를 만들면 지금 켜 둔 TV는 더 이상 내용을 받지 못해요. 바꿀까요?') && run(async () => setToken(await d.api.rotateTvToken(d.classId)), '새 TV 주소를 만들었어요.')}
-            >
-              새 주소 만들기
-            </Button>
-          </div>
-        </Card>
       </div>
 
       <SchoolCard />
@@ -103,7 +77,7 @@ export default function ClassPanel({ onClassName, onLogout, onDeleted }: { onCla
         <p className="text-sm text-ink-3">월 1회와 학기 말에 내려받아 두세요. 엑셀에서 열 수 있어요(CSV).</p>
         <div className="flex flex-wrap gap-2">
           <Button variant="secondary" icon={<Download size={16} />} onClick={() => exportCsv(d)}>
-            미션·공지 기록 내려받기
+            공지·미션 기록 내려받기
           </Button>
           <Button variant="secondary" icon={<LogOut size={16} />} onClick={() => onLogout(false)}>
             이 기기에서 로그아웃
@@ -482,7 +456,7 @@ function DeleteClass({ onClose, onDeleted }: { onClose: () => void; onDeleted: (
         </>
       }
     >
-      <p className="text-ink-2">학생 명단, 미션 기록, 공지, 바로가기, 1인1역, 달력이 모두 지워지고 되돌릴 수 없어요. 먼저 기록을 내려받아 두세요.</p>
+      <p className="text-ink-2">학생 명단, 공지·미션과 기록, 바로가기, 1인1역, 달력이 모두 지워지고 되돌릴 수 없어요. 먼저 기록을 내려받아 두세요.</p>
       <Field label={`확인을 위해 학급 코드 ${d.classId}를 입력하세요`} className="mt-4">
         <Input value={code} onChange={(e) => setCode(e.target.value)} className="font-mono tracking-widest" />
       </Field>
@@ -499,19 +473,17 @@ function exportCsv(d: ReturnType<typeof useData>) {
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   const tasks = [...d.tasks].sort((a, b) => a.due.localeCompare(b.due));
-  const notices = [...d.notices].sort((a, b) => a.publishAt - b.publishAt);
   const cols = tasks.flatMap((t) => checkItems(t).map((i) => ({ t, i })));
-  const head = ['번호', '이름', ...cols.map(({ t, i }) => `[미션 ${t.due}] ${t.title} - ${i.text}`), ...notices.map((n) => `[공지] ${n.title}`)];
+  const head = ['번호', '이름', ...cols.map(({ t, i }) => `[${t.due}] ${t.title} - ${i.text}`)];
   const lines = [head.map(esc).join(',')];
   for (const s of d.students) {
     const st = d.statuses[s.sid];
     const row: (string | number)[] = [s.number, s.name];
     cols.forEach(({ t, i }) => {
-      if (t.targets && !t.targets.includes(s.sid)) return row.push('대상 아님');
+      if ((t.targets && !t.targets.includes(s.sid)) || !itemFor(i, s.sid)) return row.push('대상 아님');
       const m = st?.tasks?.[markKey(t.id, i.id)];
       row.push(counted(m?.state) ? `완료 ${m ? formatTime(m.at) : ''}`.trim() : '미완료');
     });
-    notices.forEach((n) => row.push(st?.reads?.[n.id] ? `읽음 ${formatTime(st.reads[n.id])}` : '안 읽음'));
     lines.push(row.map(esc).join(','));
   }
   const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });

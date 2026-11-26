@@ -32,6 +32,7 @@ import {
   TaskMark,
   TaskTemplate,
   checkItems,
+  itemFor,
   markKey
 } from './types';
 import { today } from './dates';
@@ -70,6 +71,7 @@ const legacyItems = (d: Data): Task['items'] => [
 const toTask = (id: string, d: Data): Task => ({
   id,
   title: String(d.title || ''),
+  notice: String(d.notice || ''),
   items: Array.isArray(d.items) ? (d.items as Task['items']) : legacyItems(d),
   due: String(d.due || ''),
   targets: (d.targets as string[] | null) ?? null,
@@ -372,7 +374,7 @@ export function createApi(store: Store) {
     // 미션 저장 + 실시간 요약과 완료 체크 칸 목록을 함께 바꿈 (prev: 고치기 전 미션, 없어진 칸을 지우려고)
     async saveTask(cid: string, task: Omit<Task, 'id' | 'createdAt'> & { id?: string; createdAt?: number }, total: number, prev?: Task) {
       const id = task.id || randomId();
-      const data = { title: task.title, items: task.items, due: task.due, targets: task.targets, linkUrl: task.linkUrl, id, createdAt: task.createdAt || Date.now() };
+      const data = { title: task.title, notice: task.notice || '', items: task.items, due: task.due, targets: task.targets, linkUrl: task.linkUrl, id, createdAt: task.createdAt || Date.now() };
       const live: Data = { ['tasks.' + id]: liveTaskOf(task, total) };
       const keep = new Set(checkItems(task).map((i) => i.id));
       for (const i of checkItems(task)) live['checks.' + markKey(id, i.id)] = true;
@@ -429,7 +431,7 @@ export function createApi(store: Store) {
         for (const i of checkItems(t)) {
           const k = markKey(t.id, i.id);
           wantChecks[k] = true;
-          wantDone[k] = targets.filter((sid) => counted(statuses[sid]?.tasks?.[k]?.state)).length;
+          wantDone[k] = targets.filter((sid) => itemFor(i, sid) && counted(statuses[sid]?.tasks?.[k]?.state)).length;
         }
       }
       const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);

@@ -62,14 +62,16 @@ export interface MissionItem {
   text: string;
   check: boolean;
   sub: boolean;
+  targets?: string[] | null; // 이 줄을 할 학생 (없거나 null 이면 전체)
 }
 
 // 미션 (코드 안에서는 예전 이름 Task 를 그대로 씀)
 export interface Task {
   id: string;
   title: string;
+  notice: string; // 학생에게 안내할 내용 (공지)
   items: MissionItem[];
-  due: string; // YYYY-MM-DD (이 날까지 보임)
+  due: string; // YYYY-MM-DD (이 날의 공지·미션)
   targets: string[] | null; // null 이면 전체, 아니면 sid 목록
   linkUrl: string;
   createdAt: number;
@@ -78,6 +80,7 @@ export interface Task {
 export interface TaskTemplate {
   id: string;
   title: string;
+  notice?: string;
   items: MissionItem[];
   linkUrl: string;
 }
@@ -90,6 +93,8 @@ export interface TaskMark {
 // 완료 체크 칸 하나의 이름: 미션ID_줄ID (학생 기록·완료 인원수에 씀)
 export const markKey = (taskId: string, itemId: string) => `${taskId}_${itemId}`;
 export const checkItems = (t: { items?: MissionItem[] }) => (t.items || []).filter((i) => i.check);
+// 이 학생이 할 줄인지 (줄마다 대상 학생을 고를 수 있음)
+export const itemFor = (i: MissionItem, sid: string) => !i.targets || i.targets.includes(sid);
 
 // 학생 한 명의 기록: 미션 완료 칸 + 공지 읽은 때
 export interface StudentStatus {

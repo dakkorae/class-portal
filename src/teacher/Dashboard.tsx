@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { ArrowRight, Bell, ListChecks, MonitorUp, PartyPopper, Rocket, Send, Square } from 'lucide-react';
-import { errorMessage, openBoard } from '../lib/cloud';
+import { ArrowRight, Megaphone, ListChecks, MonitorUp, PartyPopper, Rocket, Send, Square } from 'lucide-react';
+import { errorMessage } from '../lib/cloud';
 import { dueLabel, formatLongToday, today } from '../lib/dates';
 import { progressOf } from '../lib/mission';
-import { activeNow, isTarget, visibleNotices } from '../lib/visible';
+import { activeNow, isTarget } from '../lib/visible';
 import { checkItems } from '../lib/types';
 import { Badge, Button, Card, Input, LinkIcon, Progress, SectionTitle, cx, isValidUrl, normalizeUrl, toast } from '../ui/kit';
 import { SchoolToday } from '../ui/school';
@@ -16,9 +16,10 @@ export default function Dashboard({ go }: { go: (s: Section) => void }) {
   const active = d.tasks.filter((t) => t.due === t0); // 오늘 미션만
   const withChecks = active.filter((t) => checkItems(t).length > 0);
   const sids = d.students.map((s) => s.sid);
-  const finished = sids.filter((sid) => withChecks.some((t) => isTarget(t, sid)) && withChecks.every((t) => !isTarget(t, sid) || progressOf(t, d.statuses[sid]).all)).length;
-  const notices = visibleNotices(d.live);
-  const unreadTotal = notices.reduce((sum, n) => sum + sids.filter((sid) => !d.statuses[sid]?.reads?.[n.id]).length, 0);
+  // 오늘 할 일이 있는 학생 중 모두 끝낸 학생
+  const mine = (sid: string) => withChecks.filter((t) => isTarget(t, sid) && progressOf(t, undefined, sid).total > 0);
+  const withWork = sids.filter((sid) => mine(sid).length > 0);
+  const finished = withWork.filter((sid) => mine(sid).every((t) => progressOf(t, d.statuses[sid], sid).all)).length;
 
   return (
     <div className="space-y-8">
@@ -27,29 +28,29 @@ export default function Dashboard({ go }: { go: (s: Section) => void }) {
           <p className="text-sm font-medium text-ink-3">{formatLongToday()}</p>
           <h1 className="text-[28px] font-bold tracking-tight mt-0.5">오늘의 우리 반</h1>
         </div>
-        <Button variant="soft" icon={<MonitorUp size={17} />} onClick={() => openBoard(d.classId) || toast('새 창이 막혔어요. 팝업을 허용해 주세요.')}>
-          TV 화면 열기
+        <Button variant="soft" icon={<MonitorUp size={17} />} onClick={() => go('tv')}>
+          TV·편의기능
         </Button>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <Stat icon={<PartyPopper size={18} />} label="미션 모두 끝낸 학생" value={finished} unit={`/ ${sids.length}명`} tone={sids.length && finished === sids.length ? 'ok' : undefined} onClick={() => go('tasks')} />
-        <Stat icon={<Bell size={18} />} label="공지 안 읽음" value={unreadTotal} unit="건" onClick={() => go('notices')} />
+        <Stat icon={<PartyPopper size={18} />} label="오늘 미션 모두 끝낸 학생" value={finished} unit={`/ ${withWork.length}명`} tone={withWork.length && finished === withWork.length ? 'ok' : undefined} onClick={() => go('tasks')} />
+        <Stat icon={<Megaphone size={18} />} label="오늘 올린 공지·미션" value={active.length} unit="개" onClick={() => go('tasks')} />
       </div>
 
       <NowSender />
 
       <SchoolToday school={d.school} />
 
-      <div className="grid lg:grid-cols-2 gap-6">
+      <div>
         <section>
-          <SectionTitle icon={<ListChecks size={18} />} title="오늘의 미션" action={<Button variant="ghost" size="sm" onClick={() => go('tasks')}>미션 <ArrowRight size={15} /></Button>} />
+          <SectionTitle icon={<ListChecks size={18} />} title="오늘의 공지 및 미션" action={<Button variant="ghost" size="sm" onClick={() => go('tasks')}>공지 및 미션 <ArrowRight size={15} /></Button>} />
           <Card className="divide-y divide-line">
-            {active.length === 0 && <p className="p-5 text-sm text-ink-3">오늘은 미션이 없어요.</p>}
+            {active.length === 0 && <p className="p-5 text-sm text-ink-3">오늘은 공지·미션이 없어요.</p>}
             {active.slice(0, 6).map((t) => {
-              const targets = sids.filter((sid) => isTarget(t, sid));
+              const targets = sids.filter((sid) => isTarget(t, sid) && progressOf(t, undefined, sid).total > 0);
               const total = targets.length;
-              const done = targets.filter((sid) => progressOf(t, d.statuses[sid]).all).length;
+              const done = targets.filter((sid) => progressOf(t, d.statuses[sid], sid).all).length;
               const hasChecks = checkItems(t).length > 0;
               return (
                 <div key={t.id} className="p-4">
@@ -60,27 +61,8 @@ export default function Dashboard({ go }: { go: (s: Section) => void }) {
                       {dueLabel(t.due)}
                     </span>
                   </div>
-                  {hasChecks ? <Progress value={done} max={total} tone={total && done >= total ? 'ok' : 'brand'} label={`${t.title} 모두 끝낸 학생`} /> : <p className="text-xs text-ink-3">완료 체크 없는 안내 미션</p>}
-                </div>
-              );
-            })}
-          </Card>
-        </section>
-        <section>
-          <SectionTitle icon={<Bell size={18} />} title="게시 중인 공지" action={<Button variant="ghost" size="sm" onClick={() => go('notices')}>공지 관리 <ArrowRight size={15} /></Button>} />
-          <Card className="divide-y divide-line">
-            {notices.length === 0 && <p className="p-5 text-sm text-ink-3">게시 중인 공지가 없어요.</p>}
-            {notices.slice(0, 6).map((n) => {
-              const read = sids.filter((sid) => d.statuses[sid]?.reads?.[n.id]).length;
-              return (
-                <div key={n.id} className="p-4">
-                  <div className="flex items-center justify-between gap-3 mb-2">
-                    <p className="font-semibold truncate">{n.title}</p>
-                    <span className="text-sm text-ink-3 shrink-0 tabular-nums">
-                      {read}/{sids.length}명 읽음
-                    </span>
-                  </div>
-                  <Progress value={read} max={sids.length} tone={sids.length && read >= sids.length ? 'ok' : 'brand'} label={`${n.title} 읽음`} />
+                  {t.notice && <p className="text-sm text-ink-3 line-clamp-2 whitespace-pre-wrap mb-2">📢 {t.notice}</p>}
+                  {hasChecks ? <Progress value={done} max={total} tone={total && done >= total ? 'ok' : 'brand'} label={`${t.title} 모두 끝낸 학생`} /> : <p className="text-xs text-ink-3">완료 체크 없는 안내</p>}
                 </div>
               );
             })}
@@ -131,7 +113,7 @@ export function NowSender() {
   return (
     <Card className="p-5 overflow-hidden relative">
       <div className="absolute inset-x-0 top-0 h-1 bg-brand-gradient" aria-hidden />
-      <SectionTitle icon={<Rocket size={18} />} title="지금 열기" sub="보낸 바로가기가 학생 화면 맨 위와 TV에 크게 떠요. 오늘이 지나면 저절로 사라져요." />
+      <SectionTitle icon={<Rocket size={18} />} title="지금 열기" sub="보낸 바로가기가 학생 화면 맨 위에 크게 떠요. 오늘이 지나면 저절로 사라져요." />
       {now && (
         <div className="mb-4 flex items-center gap-3 rounded-xl bg-brand-soft p-3">
           <LinkIcon url={now.url} icon={now.icon} size={40} />

@@ -9,7 +9,8 @@ import { cx } from '../ui/kit';
 
 // 교실 화면 (교사 기기에서 새 창으로 엶): 미션을 크게 보여 주고, 판서·타이머·번호 뽑기·지각생 하교 타이머를 함께 씀
 // 주소: #board/학급코드/미션ID(선택)
-type Mode = 'mission' | 'timer' | 'picker' | 'late';
+type Mode = 'mission' | 'write' | 'timer' | 'picker' | 'late';
+const MODES: Mode[] = ['mission', 'write', 'timer', 'picker', 'late'];
 type Theme = 'pastel' | 'chalk' | 'dark' | 'white';
 type Stroke = { color: string; width: number; erase: boolean; pts: [number, number][] };
 
@@ -26,7 +27,7 @@ const PENS: Record<Theme, string[]> = {
   white: ['#111427', '#e11d48', '#2563eb', '#059669', '#f59e0b']
 };
 
-export default function BoardApp({ classId, missionId }: { classId: string; missionId?: string }) {
+export default function BoardApp({ classId, missionId, initialMode }: { classId: string; missionId?: string; initialMode?: string }) {
   const [state, setState] = useState<'loading' | 'ok' | 'denied' | 'error'>('loading');
   const [error, setError] = useState('');
   const [className, setClassName] = useState('');
@@ -34,7 +35,7 @@ export default function BoardApp({ classId, missionId }: { classId: string; miss
   const [live, setLive] = useState<LiveDoc>(emptyLive);
   const [students, setStudents] = useState<Student[]>([]);
   const [maxStudents, setMax] = useState(30);
-  const [mode, setMode] = useState<Mode>('mission');
+  const [mode, setMode] = useState<Mode>(MODES.includes(initialMode as Mode) ? (initialMode as Mode) : 'mission');
   const [theme, setTheme] = useState<Theme>(() => loadPref<Theme>('board_theme', 'pastel'));
   const [scale, setScale] = useState(() => loadPref('board_scale', 1));
   const [showCount, setShowCount] = useState(() => loadPref('board_count', true));
@@ -70,19 +71,6 @@ export default function BoardApp({ classId, missionId }: { classId: string; miss
       stops.forEach((s) => s());
     };
   }, [classId]);
-
-  // 주소의 미션이 바뀌면 (교사 화면에서 다른 미션을 다시 띄우면) 그 미션으로
-  useEffect(() => {
-    const onHash = () => {
-      const [, , , mid] = location.hash.slice(1).split('/').concat(['', '', '', '']);
-      if (location.hash.startsWith('#board/')) {
-        setCurrent(mid || undefined);
-        setMode('mission');
-      }
-    };
-    window.addEventListener('hashchange', onHash);
-    return () => window.removeEventListener('hashchange', onHash);
-  }, []);
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
@@ -170,7 +158,8 @@ export default function BoardApp({ classId, missionId }: { classId: string; miss
         <nav className="flex items-center gap-1 rounded-xl b-panel p-1" aria-label="교실 화면 메뉴">
           {(
             [
-              ['mission', '미션', <ListChecks key="m" size={18} />],
+              ['mission', '공지·미션', <ListChecks key="m" size={18} />],
+              ['write', '판서', <PenLine key="w" size={18} />],
               ['timer', '타이머', <Timer key="t" size={18} />],
               ['picker', '번호 뽑기', <Dices key="p" size={18} />],
               ['late', '지각생 타이머', <AlarmClock key="l" size={18} />]
@@ -241,6 +230,7 @@ export default function BoardApp({ classId, missionId }: { classId: string; miss
       <main className="relative flex-1 min-h-0" style={{ fontSize: `calc(clamp(15px, 1.9vw, 60px) * ${scale})` }}>
         <div className="absolute inset-0 overflow-auto">
           {mode === 'mission' && <MissionView task={task} index={idx} count={list.length} live={live} total={task ? (task.targets ? task.targets.length : students.length) : 0} showCount={showCount} onToggleCount={() => setPref(setShowCount, 'board_count')(!showCount)} onPrev={() => go(-1)} onNext={() => go(1)} />}
+          {mode === 'write' && <WriteView />}
           {mode === 'timer' && <TimerView timer={timer} />}
           {mode === 'picker' && <PickerView pool={pool} students={students} showNames={showNames} setShowNames={setShowNames} />}
           {mode === 'late' && <LateView late={late} students={students} />}
@@ -266,8 +256,8 @@ function MissionView({ task, index, count, live, total, showCount, onToggleCount
   if (!task)
     return (
       <div className="h-full flex flex-col items-center justify-center text-center p-8">
-        <p className="text-[2em] font-bold">오늘은 미션이 없어요</p>
-        <p className="text-[1em] b-ink2 mt-[0.4em]">교사 화면의 ‘미션’에서 미션을 만들어 보세요.</p>
+        <p className="text-[2em] font-bold">오늘은 공지·미션이 없어요</p>
+        <p className="text-[1em] b-ink2 mt-[0.4em]">교사 화면의 ‘공지 및 미션’에서 올리거나, 위의 ‘판서’에서 직접 써 보세요.</p>
       </div>
     );
   return (
@@ -297,10 +287,17 @@ function MissionView({ task, index, count, live, total, showCount, onToggleCount
         </div>
       </div>
       <h1 className="text-[2.3em] font-extrabold tracking-tight leading-[1.15] break-words">{task.title}</h1>
+      {task.notice && (
+        <div className="mt-[0.6em] rounded-[0.5em] b-panel border-2 b-line px-[0.7em] py-[0.5em]">
+          <p className="text-[0.7em] font-bold b-accent mb-[0.15em]">📢 공지</p>
+          <p className="text-[1.35em] font-semibold leading-snug whitespace-pre-wrap break-words">{task.notice}</p>
+        </div>
+      )}
       <ul className="mt-[0.8em] space-y-[0.45em]">
         {task.items.map((i) => {
-          const done = Math.min(live.done[markKey(task.id, i.id)] || 0, total);
-          const all = total > 0 && done >= total;
+          const tot = i.targets ? i.targets.length : total;
+          const done = Math.min(live.done[markKey(task.id, i.id)] || 0, tot);
+          const all = tot > 0 && done >= tot;
           return (
             <li key={i.id} className={cx('flex items-start gap-[0.55em] leading-snug', i.sub ? 'pl-[1.6em] text-[1.2em]' : 'text-[1.45em]')}>
               {i.check ? (
@@ -310,10 +307,13 @@ function MissionView({ task, index, count, live, total, showCount, onToggleCount
               ) : (
                 <span className={cx('shrink-0 rounded-full mt-[0.5em]', i.sub ? 'w-[0.3em] h-[0.3em] b-dot2' : 'w-[0.36em] h-[0.36em] b-dot')} aria-hidden />
               )}
-              <span className="flex-1 min-w-0 font-semibold break-words">{i.text}</span>
+              <span className="flex-1 min-w-0 font-semibold break-words">
+                {i.text}
+                {i.targets && <span className="ml-[0.4em] text-[0.55em] font-bold b-ink2 align-middle">({i.targets.length}명)</span>}
+              </span>
               {i.check && showCount && (
                 <span className={cx('shrink-0 text-[0.62em] font-bold tabular-nums rounded-full px-[0.6em] py-[0.15em] mt-[0.25em]', all ? 'b-ok-pill' : 'b-panel b-ink2')}>
-                  {done}/{total}명{all && ' 🎉'}
+                  {done}/{tot}명{all && ' 🎉'}
                 </span>
               )}
             </li>
@@ -606,6 +606,33 @@ function PickerView({ pool, students, showNames, setShowNames }: { pool: number[
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ---------- 판서: 공지·미션과 따로 전할 내용을 크게 직접 씀 (펜으로 덧그리기도 됨) ----------
+function WriteView() {
+  const [text, setText] = useState(() => loadPref('board_write', ''));
+  const save = (v: string) => {
+    setText(v);
+    savePref('board_write', v);
+  };
+  return (
+    <div className="min-h-full flex flex-col px-[4%] py-[2.5%] gap-[0.4em]">
+      <div className="flex items-center gap-2">
+        <p className="text-[0.7em] font-bold b-ink2 flex-1">✍️ 키보드로 쓰고, 위쪽 펜 버튼으로 그 위에 그릴 수도 있어요. 쓴 내용은 이 기기에 남아요.</p>
+        <button type="button" onClick={() => text && confirm('판서 내용을 모두 지울까요?') && save('')} className="h-10 px-3 rounded-lg b-panel font-bold text-sm flex items-center gap-1.5 cursor-pointer shrink-0">
+          <Trash2 size={16} /> 지우기
+        </button>
+      </div>
+      <textarea
+        value={text}
+        onChange={(e) => save(e.target.value)}
+        placeholder="여기에 학생들에게 전할 내용을 쓰세요"
+        aria-label="판서 내용"
+        className="flex-1 min-h-[60vh] w-full resize-none bg-transparent outline-none rounded-[0.5em] border-2 border-dashed b-line p-[0.5em] text-[1.6em] font-semibold leading-snug placeholder:opacity-50"
+        style={{ color: 'var(--b-ink)' }}
+      />
     </div>
   );
 }

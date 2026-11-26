@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { Api, emptyLive } from '../lib/api';
 import { errorMessage } from '../lib/cloud';
-import { CalEvent, ClassInfo, LinkItem, LiveDoc, Notice, RolesDoc, SchoolInfo, Student, StudentStatus, Task, TaskTemplate } from '../lib/types';
+import { CalEvent, ClassInfo, LinkItem, LiveDoc, RolesDoc, SchoolInfo, Student, StudentStatus, Task, TaskTemplate } from '../lib/types';
 
 export interface ClassData {
   api: Api;
@@ -13,7 +13,6 @@ export interface ClassData {
   statuses: Record<string, StudentStatus>;
   students: Student[];
   claimed: Record<string, boolean>;
-  notices: Notice[];
   templates: TaskTemplate[];
   school: SchoolInfo | null;
   roles: RolesDoc | null;
@@ -34,7 +33,6 @@ export function useClassData(api: Api, classId: string, privacy: boolean): Class
   const [statuses, setStatuses] = useState<Record<string, StudentStatus>>({});
   const [students, setStudents] = useState<Student[]>([]);
   const [claimed, setClaimed] = useState<Record<string, boolean>>({});
-  const [notices, setNotices] = useState<Notice[]>([]);
   const [templates, setTemplates] = useState<TaskTemplate[]>([]);
   const [school, setSchool] = useState<SchoolInfo | null>(null);
   const [roles, setRoles] = useState<RolesDoc | null>(null);
@@ -53,7 +51,6 @@ export function useClassData(api: Api, classId: string, privacy: boolean): Class
       api.watchStatuses(classId, (s) => (setStatuses(s), mark('status')), onErr),
       api.watchStudents(classId, (s) => (setStudents(s), mark('students')), onErr),
       api.watchRoster(classId, setClaimed, onErr),
-      api.watchNotices(classId, setNotices, onErr),
       api.watchTemplates(classId, setTemplates, onErr),
       api.watchSchool(classId, setSchool, onErr),
       api.watchRoles(classId, setRoles, onErr),
@@ -85,7 +82,7 @@ export function useClassData(api: Api, classId: string, privacy: boolean): Class
     return s.name;
   };
 
-  return { api, classId, info, live, links, tasks, statuses, students, claimed, notices, templates, school, roles, events, error, ready, privacy, nameOf };
+  return { api, classId, info, live, links, tasks, statuses, students, claimed, templates, school, roles, events, error, ready, privacy, nameOf };
 }
 
 export const DataContext = createContext<ClassData | null>(null);

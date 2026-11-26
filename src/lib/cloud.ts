@@ -84,10 +84,11 @@ const base = () => `${window.location.origin}${window.location.pathname}`;
 export const inviteUrl = (classId: string) => `${base()}?join=${classId}`;
 export const tvUrl = (classId: string, token: string) => `${base()}#tv/${classId}/${token}`;
 
-// 교실 화면(미션 크게 보기·판서·타이머·번호 뽑기)을 새 창으로 띄움. 교사 기기에서만 열림
-export const boardUrl = (classId: string, missionId?: string) => `${base()}#board/${classId}${missionId ? '/' + missionId : ''}`;
-export function openBoard(classId: string, missionId?: string) {
-  const url = boardUrl(classId, missionId);
+// 교실 화면(공지·미션 크게 보기·판서·타이머·번호 뽑기·지각생 타이머)을 새 창으로 띄움. 교사 기기에서만 열림
+export type BoardMode = 'mission' | 'write' | 'timer' | 'picker' | 'late';
+export const boardUrl = (classId: string, missionId?: string, mode?: BoardMode) => `${base()}#board/${classId}${missionId ? '/' + missionId : ''}${mode ? '?m=' + mode : ''}`;
+export function openBoard(classId: string, missionId?: string, mode?: BoardMode) {
+  const url = boardUrl(classId, missionId, mode);
   const w = window.screen?.availWidth || 1280;
   const h = window.screen?.availHeight || 800;
   // 같은 이름의 창이 열려 있으면 그 창이 새 주소로 바뀜 (열자마자 주소를 다시 바꾸면 크롬에서 빈 창이 되므로 그러지 않음)

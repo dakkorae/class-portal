@@ -3,12 +3,12 @@
 새 대화에서 이 파일만 읽으면 이어서 작업할 수 있도록 정리했습니다. 사용자(서성민 선생님)는 비개발자 → **설명은 쉬운 한국어로, 용어는 풀어서**.
 
 ## 한눈에
-- 학급 포털 웹앱. 기획서: 우리 반 학급 포털 PRD (claude.ai 문서). 화면에 쓰는 말: **바로가기**(예전 ‘링크’), **미션**(예전 ‘과제’). 기능 = 로그인(관리자·교사·학생) + 바로가기·지금 열기 + 미션(날짜별, 완료 체크 줄 따로) + 공지 + TV 화면 + 교실 화면(판서·타이머·번호 뽑기·지각생 하교 타이머) + 나이스 급식·학사일정(시간표는 뺌) + 1인1역(주마다 교사가 직접 배정) + 학급 달력 + 화면 설정(테마 12가지·글꼴 8가지, 기기별).
-- 디자인: 기본은 ‘솜사탕 파스텔’ 테마 + 고운돋움 글꼴(시안 6장 중 A-1 선택). 교사 ‘화면 설정’ · 학생 ‘나’에서 기기마다 테마·글꼴을 바꿀 수 있음(`src/ui/skins.ts`). 교실 화면 기본 테마도 ‘솜사탕’(칠판·검정·흰색도 고를 수 있음). TV(`#tv`)는 늘 어두운 화면(자두색).
+- 학급 포털 웹앱. 기획서: 우리 반 학급 포털 PRD (claude.ai 문서). 화면에 쓰는 말: **바로가기**(예전 ‘링크’), **공지 및 미션**(예전 ‘과제’·‘미션’, 따로 있던 ‘공지’ 기능은 없앰). 기능 = 로그인(관리자·교사·학생) + 바로가기·지금 열기 + 공지 및 미션(날짜별, 한 게시물에 공지 글 + 미션 줄, 줄마다 대상 학생·완료 체크) + TV·편의기능 탭(교실 화면: 공지·미션 크게·판서·타이머·번호 뽑기·지각생 하교 타이머) + 나이스 급식·학사일정(시간표는 뺌) + 1인1역(주마다 교사가 직접 배정) + 학급 달력 + 화면 설정(테마 12가지·글꼴 8가지, 기기별).
+- 디자인: 기본은 ‘솜사탕 파스텔’ 테마 + 고운돋움 글꼴(시안 6장 중 A-1 선택). 교사 ‘화면 설정’ · 학생 ‘나’에서 기기마다 테마·글꼴을 바꿀 수 있음(`src/ui/skins.ts`). 교실 화면 기본 테마도 ‘솜사탕’(칠판·검정·흰색도 고를 수 있음). 교실 화면도 자체 테마(솜사탕·칠판·검정·흰색).
 - React 19 + TypeScript + Vite 6 + Tailwind 4, PWA(`public/sw.js`, `manifest.webmanifest`). 서버는 Firebase Spark(Firestore 서울 + 익명 로그인). Functions·Storage 쓰지 않음.
 - Firebase 프로젝트 `uriban-portal`(계정 dakkorae), 배포 주소 https://uriban-portal.web.app 와 Vercel https://potal-sand.vercel.app (GitHub `main` 에 올리면 Vercel이 자동 배포). 저장소 `dakkorae/class-portal` 의 `main` (예전 이름 `potal` 에서 바뀜. 작업이 끝나면 `main` 에 바로 커밋·푸시).
 - 배포: Vercel은 푸시만 하면 자동. Firebase Hosting·규칙은 `npm run build && npx firebase-tools deploy --only firestore:rules,auth,hosting` (규칙을 바꾸면 이 명령으로 같이 올라감).
-- 주소로 화면 나누기(`src/App.tsx`): `/` 학생, `#teacher`, `#admin`, `#tv/학급코드/비밀값`(늘 켜 두는 TV), `#board/학급코드/미션ID`(교실 화면: 교사 기기에서 새 창, `openBoard`). 교사·관리자·TV·교실 화면은 `lazy()` 로 따로 내려받음.
+- 주소로 화면 나누기(`src/App.tsx`): `/` 학생, `#teacher`, `#admin`, `#board/학급코드/미션ID?m=모드`(교실 화면: 교사 기기에서 새 창, `openBoard(cid, mid, mode)`, 모드 mission·write·timer·picker·late). 늘 켜 두는 TV(`#tv`)는 사용자 요청으로 없앰(TvApp 삭제). 교사·관리자·교실 화면은 `lazy()` 로 따로 내려받음.
 - IB 대시보드(dakkorae/IBL)의 로그인·개설 코드·재설정 코드·규칙 시험 방식을 가져와 고쳐 씀.
 
 ## 구조
@@ -29,17 +29,20 @@
 | `src/board/BoardApp.tsx` · `LateTimer.tsx` | 교실 화면(‘TV 화면 열기’): 미션 크게(완료 인원) · 판서(펜·지우개·되돌리기) · 타이머 · 번호 뽑기 · 지각생 하교 타이머(사용자가 준 HTML을 React로 옮겨 교실 화면 테마 색 `--b-*` 에 맞춤, 종소리는 Web Audio 도·미·솔 5번, 서버 저장 없음), 솜사탕/칠판/검정/흰색 테마. 1인1역은 교실 화면에서 뺌 |
 | `src/student/*` | JoinFlow(코드→번호→PIN→이름), StudentPortal(홈·링크·공지·나), PinPad |
 | `src/teacher/*` | TeacherApp(열기·개설·재설정·기록 안내), Workspace(메뉴·가림 모드), data.ts(실시간 구독 + `syncLive`), Dashboard, LinksPanel(바로가기), MissionsPanel(미션 카드·완료 현황표(보기 전용)·편집기·템플릿), NoticesPanel, RolesPanel, CalendarPanel, ClassPanel(명단 일괄 저장·학교 설정·TV 주소·CSV·삭제) |
-| `src/admin/AdminApp.tsx` · `src/tv/TvApp.tsx` | 관리자 / TV |
+| `src/admin/AdminApp.tsx` | 관리자 |
+| `src/teacher/TvToolsPanel.tsx` | ‘TV·편의기능’ 탭: 교실 화면 모드별 ‘띄우기’ 카드와 쓰는 법 |
 | `src/ui/kit.tsx` | 버튼(둥근 알약 모양, 주 버튼은 분홍→보라 그라데이션)·카드(2px 분홍 테두리)·입력·모달·토스트 등. 색은 이름 붙은 토큰(`bg-surface`, `text-ink-3`, `bg-brand` …)만 씀 → 어두운 화면 자동 |
 | `src/index.css` | **디자인 테마 ‘솜사탕 파스텔’**(사용자가 시안 A-1 선택): 글꼴 고운돋움(`@fontsource/gowun-dodum`, 앱에 함께 묶어 배포), `:root` 색 토큰(분홍 brand #df5f9f, 글자 보라빛 #4e3e5e), 어두운 화면은 짙은 자두색, 모서리 반경 키움(`--radius-*`), `.bg-aurora`(무지개 파스텔 번짐), `.bg-brand-gradient`, `.bg-rainbow`(진행 막대) |
 | `firestore.rules` · `scripts/rules-test.mjs` | 보안 규칙 · 자동 시험(134가지) |
 
 ## 서버 자료 (`classes/{학급코드}/…`)
-학급 문서 `{name, inviteCode, createdAt, maxStudents, refs}`(교사·관리자만 읽음) · `public/roster {name, maxStudents, claimed}`(누구나: 입장 화면) · `public/live {now, notices(요약), tasks(미션 요약: title·due·total·items·targets), checks{완료칸:true}, done{완료칸:인원}}`(학생·TV·교사) · `public/links {items}` · `public/school`(나이스 학교·학년·반·인증키) · `public/roles {items, weeks:{월요일:{역할ID:[sid]}}}` · `public/calendar {items}` · `tasks/{id} {title, items:[{id,text,check,sub}], due(=그 미션의 날짜), targets, linkUrl}` · `notices/{id}`(그림 data URL 포함, 학생은 게시 시각 지난 것만) · `status/{sid} {tasks:{미션ID_줄ID:{state,at}}, reads, last}` · `students/{sid}`(본인·교사) · `pins/{sid}`·`secrets/teacher·reset`(읽기 불가) · `secrets/tv`(교사) · `teachers|members|screens/{기기}` · `private/templates`. 최상위 `config/admin`, `admins`, `inviteCodes`.
+학급 문서 `{name, inviteCode, createdAt, maxStudents, refs}`(교사·관리자만 읽음) · `public/roster {name, maxStudents, claimed}`(누구나: 입장 화면) · `public/live {now, notices(요약), tasks(미션 요약: title·due·total·items·targets), checks{완료칸:true}, done{완료칸:인원}}`(학생·TV·교사) · `public/links {items}` · `public/school`(나이스 학교·학년·반·인증키) · `public/roles {items, weeks:{월요일:{역할ID:[sid]}}}` · `public/calendar {items}` · `tasks/{id} {title, notice(공지 글), items:[{id,text,check,sub,targets?}], due(=날짜), targets(예전 자료용, 새로는 null), linkUrl}` · `notices/{id}`(그림 data URL 포함, 학생은 게시 시각 지난 것만) · `status/{sid} {tasks:{미션ID_줄ID:{state,at}}, reads, last}` · `students/{sid}`(본인·교사) · `pins/{sid}`·`secrets/teacher·reset`(읽기 불가) · `secrets/tv`(교사) · `teachers|members|screens/{기기}` · `private/templates`. 최상위 `config/admin`, `admins`, `inviteCodes`.
 
 ## 원칙
 - 학생 이름은 **교사만 바꿈**(학생은 처음 참여 때 교사가 넣은 이름을 확인만, 교사가 비워 둔 번호만 한 번 직접 씀 — 규칙이 막음). 학생 이름은 본인·교사만 봄. TV·로그인 번호 버튼에는 이름 없음. 교사 화면 가림 모드(`.privacy .pii` 흐림).
 - 완료 칸 이름은 `미션ID_줄ID`(`markKey`). 학생은 자기 기록의 칸 하나만 done/todo 로 바꾸고, `public/live.done` 을 그 칸만 ±1 (`checks` 에 있는 칸만). 선생님은 현황을 **보기만**(확인·다시 해요 없음). 교사 화면이 열려 있으면 `syncLive` 가 요약·칸 목록·인원수를 실제 기록으로 바로잡음.
+- 줄마다 대상 학생(`MissionItem.targets`, `itemFor`). 학생 화면은 `itemsFor` 로 자기 줄만, 진행은 `progressOf(t, st, sid)`. 학생 홈은 그날 공지 글을 먼저, 그다음 ‘해야 할 일’.
+- 예전 ‘공지’ 자료(`notices/…`, `public/live.notices`)는 화면에서 안 씀(지우지는 않음, 학급 삭제 때 함께 지워짐).
 - 예전 ‘과제’ 자료(설명·종이 과제, items 없음)는 `legacyItems` 로 설명 줄 + ‘다 했어요’ 체크 한 줄로 보여 줌(사용자 학급 MYEQZ6 에 예전 과제 1개 있음).
 - 묶음 쓰기로 “자기 것 하나만 바꿨는지” 규칙이 검사(`last`, `doneLast` 표시 칸). 서버 동작을 바꾸면 **규칙과 시험 스크립트도 같이** 고침.
 - 학급 삭제는 10개씩 묶어 지움(규칙 호출 한도).
@@ -79,6 +82,8 @@ npx firebase emulators:exec --only firestore --project demo-portal "node rules-t
 11. (11/26 밤) 요청 반영: 시간표 삭제 · 미션 날짜별 보기(DateNav, 지난 미션은 오늘 화면에 안 나옴, 기간별 보기 삭제) · 바로가기 분류 11개(영어·체육·음악 추가)와 아이콘 · 화면 설정(테마 12·글꼴 8, 교사 ‘화면 설정’/학생 ‘나’) · 1인1역 자동 순환 → 주마다 직접 배정(지난주 배정 가져오기·비우기·역할 전체 삭제) · 대시보드에서 ‘미션 남은 체크’·‘참여한 학생’ 삭제 · 학생 이름 바꾸기 삭제(규칙도) · TV 화면 열기 크롬 문제 수정(`openBoard` 가 새 창을 연 직후 `location.hash` 를 다시 바꿔 크롬에서 빈 창이 되던 것 → 바꾸지 않음, 팝업이 막히면 링크 누르기로 새 탭). 규칙 134가지 통과·배포, 실제 서버 시험 후 시험 자료 지움.
 
 12. (11/26 밤) 학생 홈 날짜 이동 시 그날 급식 · 교실 화면에서 1인1역 빼기 · 지각생 하교 타이머 추가(학생 추가→일괄/개별 시작→종소리 5초→‘확인 완료(하교)’, 다른 메뉴로 가도 계속 잼, 머리글에 진행 인원 표시).
+
+13. (11/26 밤) 공지 기능 삭제(교사 ‘공지’ 메뉴·학생 ‘공지’ 탭·대시보드 공지) · ‘미션’→‘공지 및 미션’(한 게시물에 공지 글+미션 줄, 미션 줄마다 ‘전체/○명’ 대상 고르기) · ‘TV·편의기능’ 탭 신설(공지·미션 크게·판서(키보드로 크게 쓰기+펜)·타이머·번호 뽑기·지각생 타이머, 미션 카드의 ‘TV로 크게 보기’ 버튼은 뺌) · 학급 관리의 늘 켜 두는 TV 화면 삭제 · 학생 홈: 공지 먼저, 없으면 해야 할 일만. 실제 서버 시험 후 시험 자료 지움.
 
 ## 작업 환경 메모 (클라우드 세션)
 - 이 저장소 전용 클라우드 환경 `class-portal`(Firebase 주소들 + `open.neis.go.kr` 허용). `web.app`·`vercel.app` 주소와 글꼴 CDN은 열리지 않음 → 실제 서버 시험은 `npm run build` 후 `dist` 를 `python3 -m http.server` 로 띄워 Playwright로(서버는 진짜 Firebase에 연결됨). Playwright 는 `chromium.launch({ proxy: { server: process.env.HTTPS_PROXY, bypass: 'localhost,127.0.0.1' } })` + `ignoreHTTPSErrors` 로 띄워야 나이스·Firebase 에 닿음.
