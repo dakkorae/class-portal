@@ -7,6 +7,7 @@ import { dueLabel, formatLongToday, today } from '../lib/dates';
 import { activeNow, visibleNotices } from '../lib/visible';
 import { LiveDoc, checkItems, markKey } from '../lib/types';
 import { cx } from '../ui/kit';
+import { applyAppearance, loadAppearance } from '../ui/skins';
 
 // 교실 TV(전자칠판) 화면: 읽기 전용, 학생 이름은 보이지 않음
 // 주소: #tv/학급코드/비밀값 (교사 화면 '학급 관리'에서 받음)
@@ -19,10 +20,9 @@ export default function TvApp({ classId, token }: { classId: string; token: stri
 
   // TV는 항상 어두운 화면
   useEffect(() => {
-    document.documentElement.dataset.theme = 'dark';
-    return () => {
-      delete document.documentElement.dataset.theme;
-    };
+    const saved = loadAppearance();
+    applyAppearance('plum', saved.font);
+    return () => applyAppearance(saved.skin, saved.font);
   }, []);
 
   useEffect(() => {
@@ -98,7 +98,7 @@ export default function TvApp({ classId, token }: { classId: string; token: stri
   const notices = pinned.length ? pinned : visibleNotices(live, nowMs).slice(0, 3);
   const t0 = today();
   const tasks = Object.entries(live.tasks)
-    .filter(([, t]) => t.due >= t0)
+    .filter(([, t]) => t.due === t0)
     .sort((a, b) => a[1].due.localeCompare(b[1].due))
     .slice(0, 5);
   const nowLink = activeNow(live);

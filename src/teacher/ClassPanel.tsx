@@ -6,7 +6,7 @@ import { errorMessage, inviteUrl, tvUrl } from '../lib/cloud';
 import { formatTime, today } from '../lib/dates';
 import { SchoolHit, kindOf, searchSchools } from '../lib/neis';
 import { MAX_STUDENTS, NAME_MAX, SchoolInfo, Student, checkItems, markKey } from '../lib/types';
-import { Badge, Button, Card, CopyButton, ErrorNote, Field, IconButton, Input, Modal, SectionTitle, Select, Textarea, cx, toast } from '../ui/kit';
+import { Badge, Button, Card, CopyButton, ErrorNote, Field, IconButton, Input, Modal, SectionTitle, Textarea, cx, toast } from '../ui/kit';
 import { schoolLabel } from '../ui/school';
 import { useData } from './data';
 
@@ -253,7 +253,7 @@ function RosterRow({ number, student, claimed, value, changed, onChange, onEnter
   );
 }
 
-// 학교(나이스) 설정: 급식·시간표·학사일정을 불러오려고 학교와 학년·반을 정함
+// 학교(나이스) 설정: 급식·학사일정을 불러오려고 학교를 정함
 function SchoolCard() {
   const d = useData();
   const cur = d.school;
@@ -261,13 +261,13 @@ function SchoolCard() {
   return (
     <Card className="p-5 space-y-3">
       <h3 className="font-bold flex items-center gap-2">
-        <School size={18} /> 우리 학교 (급식·시간표·학사일정)
+        <School size={18} /> 우리 학교 (급식·학사일정)
       </h3>
       {cur ? (
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex-1 min-w-48">
             <p className="text-lg font-bold">{schoolLabel(cur)}</p>
-            <p className="text-sm text-ink-3">나이스에서 급식·시간표·학사일정을 가져와 학생 홈과 달력에 보여 줘요. {cur.key ? '인증키 사용 중' : '인증키 없음 (시간표는 5교시까지)'}</p>
+            <p className="text-sm text-ink-3">나이스에서 오늘 급식과 학사일정을 가져와 학생 홈과 달력에 보여 줘요.</p>
           </div>
           <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
             바꾸기
@@ -275,7 +275,7 @@ function SchoolCard() {
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-3">
-          <p className="text-sm text-ink-3 flex-1 min-w-48">학교를 정하면 나이스의 오늘 급식·시간표가 학생 홈에 보이고, 학사일정이 학급 달력에 함께 보여요.</p>
+          <p className="text-sm text-ink-3 flex-1 min-w-48">학교를 정하면 나이스의 오늘 급식이 학생 홈에 보이고, 학사일정이 학급 달력에 함께 보여요.</p>
           <Button size="sm" icon={<Search size={15} />} onClick={() => setOpen(true)}>
             학교 찾기
           </Button>
@@ -292,8 +292,6 @@ function SchoolEditor({ onClose }: { onClose: () => void }) {
   const [q, setQ] = useState(cur?.name || '');
   const [hits, setHits] = useState<SchoolHit[] | null>(null);
   const [pick, setPick] = useState<Pick<SchoolInfo, 'office' | 'code' | 'name' | 'kind'> | null>(cur ? { office: cur.office, code: cur.code, name: cur.name, kind: cur.kind } : null);
-  const [grade, setGrade] = useState(String(cur?.grade || 1));
-  const [classNo, setClassNo] = useState(cur?.classNo || '1');
   const [key, setKey] = useState(cur?.key || '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -316,7 +314,7 @@ function SchoolEditor({ onClose }: { onClose: () => void }) {
     if (!pick) return setError('학교를 골라 주세요.');
     setBusy(true);
     try {
-      await d.api.saveSchool(d.classId, { ...pick, grade: Number(grade) || 1, classNo: classNo.trim() || '1', key: key.trim() });
+      await d.api.saveSchool(d.classId, { ...pick, grade: cur?.grade || 1, classNo: cur?.classNo || '1', key: key.trim() });
       toast('학교를 정했어요.');
       onClose();
     } catch (e) {
@@ -324,7 +322,6 @@ function SchoolEditor({ onClose }: { onClose: () => void }) {
       setBusy(false);
     }
   };
-  const maxGrade = pick?.kind === 'els' ? 6 : 3;
 
   return (
     <Modal
@@ -370,26 +367,8 @@ function SchoolEditor({ onClose }: { onClose: () => void }) {
             ))}
           </div>
         )}
-        {pick && (
-          <>
-            <p className="text-sm font-semibold text-brand-strong">고른 학교: {pick.name}</p>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="학년">
-                <Select value={grade} onChange={(e) => setGrade(e.target.value)}>
-                  {Array.from({ length: maxGrade }, (_, i) => (
-                    <option key={i} value={i + 1}>
-                      {i + 1}학년
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label="반">
-                <Input value={classNo} onChange={(e) => setClassNo(e.target.value)} maxLength={4} inputMode="numeric" />
-              </Field>
-            </div>
-          </>
-        )}
-        <Field label="나이스 인증키 (선택)" hint="없어도 돼요. 넣으면 6교시까지 시간표가 다 보여요. open.neis.go.kr 에서 무료로 받을 수 있고, 학생 기기에서도 쓰여요(개인정보 없는 공개 자료용).">
+        {pick && <p className="text-sm font-semibold text-brand-strong">고른 학교: {pick.name}</p>}
+        <Field label="나이스 인증키 (선택)" hint="없어도 돼요. 나이스 호출 한도가 넉넉해져요. open.neis.go.kr 에서 무료로 받을 수 있고, 학생 기기에서도 쓰여요(개인정보 없는 공개 자료용).">
           <Input value={key} onChange={(e) => setKey(e.target.value)} placeholder="인증키" className="font-mono text-sm" />
         </Field>
         <ErrorNote>{error}</ErrorNote>

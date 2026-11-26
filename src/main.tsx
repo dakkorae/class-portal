@@ -3,6 +3,11 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import './index.css';
+import { applyAppearance, loadAppearance } from './ui/skins';
+
+// 이 기기에서 고른 테마·글꼴을 먼저 입힘 (화면이 깜빡이지 않게)
+const look = loadAppearance();
+applyAppearance(look.skin, look.font);
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

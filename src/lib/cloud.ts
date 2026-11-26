@@ -87,17 +87,21 @@ export const tvUrl = (classId: string, token: string) => `${base()}#tv/${classId
 // 교실 화면(미션 크게 보기·판서·타이머·번호 뽑기)을 새 창으로 띄움. 교사 기기에서만 열림
 export const boardUrl = (classId: string, missionId?: string) => `${base()}#board/${classId}${missionId ? '/' + missionId : ''}`;
 export function openBoard(classId: string, missionId?: string) {
+  const url = boardUrl(classId, missionId);
   const w = window.screen?.availWidth || 1280;
   const h = window.screen?.availHeight || 800;
-  const win = window.open(boardUrl(classId, missionId), 'cp-board', `popup=yes,width=${w},height=${h},left=0,top=0`);
+  // 같은 이름의 창이 열려 있으면 그 창이 새 주소로 바뀜 (열자마자 주소를 다시 바꾸면 크롬에서 빈 창이 되므로 그러지 않음)
+  const win = window.open(url, 'cp-board', `popup=yes,width=${w},height=${h},left=0,top=0`);
   if (win) {
-    // 이미 열려 있던 창이면 주소만 바꾸고 앞으로
-    try {
-      win.location.hash = `#board/${classId}${missionId ? '/' + missionId : ''}`;
-    } catch {
-      // 무시
-    }
     win.focus();
+    return true;
   }
-  return !!win;
+  // 팝업이 막히면 새 탭으로라도 엶 (링크 누르기는 대부분 막히지 않음)
+  const a = document.createElement('a');
+  a.href = url;
+  a.target = 'cp-board';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  return true;
 }

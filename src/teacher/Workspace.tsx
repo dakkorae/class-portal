@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CalendarDays, ChevronDown, Eye, EyeOff, LayoutDashboard, ListChecks, LogOut, Megaphone, MonitorUp, Settings2, Sparkles, SquareArrowOutUpRight, UsersRound } from 'lucide-react';
+import { CalendarDays, ChevronDown, Palette, Eye, EyeOff, LayoutDashboard, ListChecks, LogOut, Megaphone, MonitorUp, Settings2, Sparkles, SquareArrowOutUpRight, UsersRound } from 'lucide-react';
 import { Api } from '../lib/api';
 import { loadPref, openBoard, savePref } from '../lib/cloud';
 import { Button, ErrorNote, IconButton, Spinner, cx, toast } from '../ui/kit';
@@ -11,8 +11,10 @@ import NoticesPanel from './NoticesPanel';
 import ClassPanel from './ClassPanel';
 import RolesPanel from './RolesPanel';
 import CalendarPanel from './CalendarPanel';
+import { ThemeCard } from '../ui/ThemePicker';
+import { SectionTitle } from '../ui/kit';
 
-export type Section = 'home' | 'links' | 'tasks' | 'notices' | 'roles' | 'calendar' | 'class';
+export type Section = 'home' | 'links' | 'tasks' | 'notices' | 'roles' | 'calendar' | 'class' | 'settings';
 
 const NAV: { id: Section; label: string; icon: React.ReactNode }[] = [
   { id: 'home', label: '대시보드', icon: <LayoutDashboard size={19} /> },
@@ -21,7 +23,8 @@ const NAV: { id: Section; label: string; icon: React.ReactNode }[] = [
   { id: 'notices', label: '공지', icon: <Megaphone size={19} /> },
   { id: 'roles', label: '1인1역', icon: <UsersRound size={19} /> },
   { id: 'calendar', label: '학급 달력', icon: <CalendarDays size={19} /> },
-  { id: 'class', label: '학급 관리', icon: <Settings2 size={19} /> }
+  { id: 'class', label: '학급 관리', icon: <Settings2 size={19} /> },
+  { id: 'settings', label: '화면 설정', icon: <Palette size={19} /> }
 ];
 
 export default function Workspace({
@@ -156,6 +159,12 @@ export default function Workspace({
                 {section === 'notices' && <NoticesPanel />}
                 {section === 'roles' && <RolesPanel />}
                 {section === 'calendar' && <CalendarPanel />}
+                {section === 'settings' && (
+                  <div className="space-y-4 max-w-4xl">
+                    <SectionTitle icon={<Palette size={20} />} title={<span className="text-2xl">화면 설정</span>} sub="앱의 색·모양·글꼴을 골라요. 이 기기에만 적용되고, 학생은 ‘나’ 메뉴에서 각자 고를 수 있어요." />
+                    <ThemeCard />
+                  </div>
+                )}
                 {section === 'class' && <ClassPanel onClassName={onClassName} onLogout={onLogout} onDeleted={onDeleted} />}
               </>
             )}

@@ -1,15 +1,14 @@
 import { useMemo, useRef, useState } from 'react';
+import DateNav from '../ui/DateNav';
 import { ArrowDown, ArrowUp, BookmarkPlus, Check, CornerDownRight, ListChecks, MonitorUp, Pencil, Plus, SquareCheckBig, Trash2, X } from 'lucide-react';
 import { counted } from '../lib/api';
 import { errorMessage, openBoard } from '../lib/cloud';
-import { addDays, dueLabel, formatDay, today } from '../lib/dates';
+import { addDays, formatDay, today } from '../lib/dates';
 import { newItem, parseLines, progressOf } from '../lib/mission';
 import { isTarget } from '../lib/visible';
 import { MissionItem, Task, TaskTemplate, checkItems, markKey } from '../lib/types';
-import { Badge, Button, Card, Empty, ErrorNote, Field, IconButton, Input, Modal, Progress, Segmented, SectionTitle, Select, Switch, Textarea, cx, isValidUrl, normalizeUrl, toast } from '../ui/kit';
+import { Badge, Button, Card, Empty, ErrorNote, Field, IconButton, Input, Modal, Progress, SectionTitle, Select, Switch, Textarea, cx, isValidUrl, normalizeUrl, toast } from '../ui/kit';
 import { useData } from './data';
-
-type Range = 'active' | 'recent' | 'all';
 
 const boardOrToast = (cid: string, mid?: string) => {
   if (!openBoard(cid, mid)) toast('새 창이 막혔어요. 브라우저 주소창 오른쪽에서 팝업을 허용해 주세요.');
@@ -18,47 +17,31 @@ const boardOrToast = (cid: string, mid?: string) => {
 export default function MissionsPanel() {
   const d = useData();
   const [edit, setEdit] = useState<Partial<Task> | null>(null);
-  const [range, setRange] = useState<Range>('active');
+  const [day, setDay] = useState(today());
   const [onlyTodo, setOnlyTodo] = useState(false);
-  const t0 = today();
-
-  const shown = useMemo(() => {
-    if (range === 'active') return d.tasks.filter((t) => t.due >= t0);
-    if (range === 'recent') return d.tasks.filter((t) => t.due >= addDays(t0, -14));
-    return d.tasks;
-  }, [d.tasks, range, t0]);
+  // 고른 날짜의 미션만 (지난 미션은 날짜를 옮겨서 봄)
+  const shown = useMemo(() => d.tasks.filter((t) => t.due === day), [d.tasks, day]);
+  const marked = useMemo(() => new Set(d.tasks.map((t) => t.due)), [d.tasks]);
 
   return (
     <div className="space-y-6">
       <SectionTitle
         icon={<ListChecks size={20} />}
         title={<span className="text-2xl">미션</span>}
-        sub="할 일을 줄마다 적고, 학생이 완료 체크할 줄만 골라요. ‘TV로 크게 보기’는 새 창에 미션을 크게 띄워요."
+        sub="날짜마다 미션을 만들어요. 화살표나 달력으로 다른 날의 미션과 완료 기록을 볼 수 있어요."
         action={
-          <Button icon={<Plus size={18} />} onClick={() => setEdit({ due: t0, targets: null, items: [newItem('', true)] })}>
+          <Button icon={<Plus size={18} />} onClick={() => setEdit({ due: day, targets: null, items: [newItem('', true)] })}>
             미션 추가
           </Button>
         }
       />
 
-      <div className="flex flex-wrap items-center gap-3">
-        <Segmented
-          value={range}
-          onChange={setRange}
-          size="sm"
-          ariaLabel="보일 미션"
-          options={[
-            { value: 'active', label: '진행 중' },
-            { value: 'recent', label: '최근 2주' },
-            { value: 'all', label: '전체' }
-          ]}
-        />
-      </div>
+      <DateNav value={day} onChange={setDay} marked={marked} />
 
       {shown.length === 0 ? (
         <Card>
-          <Empty icon={<ListChecks size={22} />} title={range === 'active' ? '진행 중인 미션이 없어요' : '미션이 없어요'}>
-            ‘미션 추가’로 오늘 할 일을 만들어 보세요.
+          <Empty icon={<ListChecks size={22} />} title={`${formatDay(day)} 미션이 없어요`}>
+            ‘미션 추가’로 이날 할 일을 만들어 보세요.
           </Empty>
         </Card>
       ) : (
@@ -81,7 +64,7 @@ export default function MissionsPanel() {
         </section>
       )}
 
-      <TemplatesCard onUse={(tpl) => setEdit({ title: tpl.title, items: tpl.items.map((i) => newItem(i.text, i.check, i.sub)), linkUrl: tpl.linkUrl, due: t0, targets: null })} />
+      <TemplatesCard onUse={(tpl) => setEdit({ title: tpl.title, items: tpl.items.map((i) => newItem(i.text, i.check, i.sub)), linkUrl: tpl.linkUrl, due: day, targets: null })} />
 
       {edit && <MissionEditor initial={edit} onClose={() => setEdit(null)} />}
     </div>
@@ -99,7 +82,7 @@ function MissionCard({ task: t, onEdit }: { task: Task; onEdit: () => void }) {
       <div className="flex items-start gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-1.5 mb-1">
-            <Badge tone={t.due === today() ? 'brand' : t.due < today() ? 'warn' : 'neutral'}>{formatDay(t.due)}</Badge>
+            <Badge tone={t.due === today() ? 'brand' : 'neutral'}>{t.due === today() ? '오늘' : formatDay(t.due)}</Badge>
             {t.targets && <Badge>{t.targets.length}명에게</Badge>}
           </div>
           <h3 className="text-lg font-bold leading-snug break-words">{t.title}</h3>
@@ -168,7 +151,6 @@ function StatusBoard({ tasks, onlyTodo }: { tasks: Task[]; onlyTodo: boolean }) 
               </th>
               {tasks.map((t) => (
                 <th key={t.id} colSpan={checkItems(t).length} className="sticky top-0 z-20 h-10 bg-surface border-b border-l border-line px-2 text-left">
-                  <span className="text-xs font-semibold text-ink-3 mr-1.5">{dueLabel(t.due).replace('까지', '')}</span>
                   <span className="font-bold text-ink">{t.title}</span>
                 </th>
               ))}
@@ -317,13 +299,12 @@ function MissionEditor({ initial, onClose }: { initial: Partial<Task>; onClose: 
           <Field label="미션 제목">
             <Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={40} placeholder="예: 11월 27일 오늘의 미션" autoFocus={!initial.id} />
           </Field>
-          <Field label="날짜 (이 날까지 보여요)">
+          <Field label="날짜">
             <Input type="date" value={due} onChange={(e) => setDue(e.target.value)} />
             <div className="flex gap-1.5 mt-2">
               {[
                 ['오늘', 0],
-                ['내일', 1],
-                ['일주일', 7]
+                ['내일', 1]
               ].map(([l, n]) => (
                 <button key={l} type="button" onClick={() => setDue(addDays(today(), n as number))} className="h-8 px-2.5 rounded-lg border border-line text-xs font-semibold text-ink-2 hover:bg-surface-2 cursor-pointer">
                   {l}

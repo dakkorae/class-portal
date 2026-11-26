@@ -1,8 +1,7 @@
-// 나이스 교육정보 개방 포털(open.neis.go.kr) 호출: 학교 찾기 · 급식 · 시간표 · 학사일정
-// - 브라우저에서 바로 부름(서버 없음). 인증키가 없으면 한 번에 5줄까지만 와서, 시간표는 5교시까지만 보일 수 있음
+// 나이스 교육정보 개방 포털(open.neis.go.kr) 호출: 학교 찾기 · 급식 · 학사일정
+// - 브라우저에서 바로 부름(서버 없음). 인증키가 없으면 한 번에 5줄까지만 옴(급식·학사일정은 하루·한 달 단위라 충분)
 // - 같은 요청은 이 기기에 6시간 동안 기억해 둠
 import { SchoolInfo, SchoolKind } from './types';
-import { addDays } from './dates';
 
 const BASE = 'https://open.neis.go.kr/hub/';
 const TTL = 6 * 60 * 60 * 1000;
@@ -91,25 +90,6 @@ export async function getMeals(s: SchoolInfo, from: string, to: string): Promise
       cal: String(r.CAL_INFO || '')
     };
   }
-  return out;
-}
-
-// 시간표: 날짜 → 교시별 과목
-export async function getTimetable(s: SchoolInfo, from: string, to: string): Promise<Record<string, string[]>> {
-  const service = `${s.kind}Timetable`;
-  const p = { ...base(s), GRADE: s.grade, CLASS_NM: s.classNo };
-  const days: string[] = [];
-  for (let k = from; k <= to && days.length < 14; k = addDays(k, 1)) if (new Date(k + 'T00:00').getDay() % 6) days.push(k); // 주말 빼기
-  // 인증키가 있으면 한 번에, 없으면 하루씩 (한 번에 5줄까지만 오므로)
-  const batches = s.key ? [[from, to]] : days.map((d) => [d, d]);
-  const rows = (await Promise.all(batches.map(([a, b]) => call(service, { ...p, TI_FROM_YMD: ymd(a), TI_TO_YMD: ymd(b) }, s.key)))).flat();
-  const out: Record<string, string[]> = {};
-  for (const r of rows) {
-    const day = fromYmd(String(r.ALL_TI_YMD));
-    const n = Number(r.PERIO) || 0;
-    (out[day] ||= [])[n - 1] = String(r.ITRT_CNTNT || '').replace(/^-/, '').trim();
-  }
-  for (const k of Object.keys(out)) out[k] = Array.from(out[k], (v) => v || '');
   return out;
 }
 

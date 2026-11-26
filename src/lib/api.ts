@@ -21,7 +21,6 @@ import {
   LinkItem,
   LiveDoc,
   MAX_STUDENTS,
-  NAME_CHANGE_DAYS,
   Notice,
   NoticeSummary,
   NowLink,
@@ -451,7 +450,7 @@ export function createApi(store: Store) {
     watchRoles(cid: string, cb: (r: RolesDoc | null) => void, onError?: (e: unknown) => void) {
       return store.watch(
         C(cid, 'public/roles'),
-        (d) => cb(d ? { items: (d.items as RolesDoc['items']) || [], order: (d.order as string[]) || [], start: String(d.start || ''), shift: Number(d.shift) || 0 } : null),
+        (d) => cb(d ? { items: (d.items as RolesDoc['items']) || [], weeks: (d.weeks as RolesDoc['weeks']) || {} } : null),
         onError
       );
     },
@@ -565,11 +564,6 @@ export function createApi(store: Store) {
     // 처음 참여 때 이름 확인 (교사가 넣어 둔 이름을 그대로 쓰거나 고침)
     async confirmName(cid: string, sid: string, name: string) {
       await store.write([{ type: 'set', path: C(cid, 'students/' + sid), data: { number: Number(sid.slice(1)), name: name.trim(), joined: true }, merge: true }]);
-    },
-    async renameSelf(cid: string, student: Student, name: string): Promise<'ok' | 'too-soon'> {
-      if (student.nameAt && Date.now() < student.nameAt + NAME_CHANGE_DAYS * 86400000) return 'too-soon';
-      const ok = await tryWrite([{ type: 'update', path: C(cid, 'students/' + student.sid), data: { name: name.trim(), nameAt: NOW } }]);
-      return ok ? 'ok' : 'too-soon';
     },
     watchMyStatus(cid: string, sid: string, cb: (s: StudentStatus) => void, onError?: (e: unknown) => void) {
       return store.watch(C(cid, 'status/' + sid), (d) => cb({ tasks: (d?.tasks as StudentStatus['tasks']) || {}, reads: (d?.reads as StudentStatus['reads']) || {} }), onError);

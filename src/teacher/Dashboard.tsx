@@ -1,11 +1,10 @@
 import { useState } from 'react';
-import { ArrowRight, Bell, ListChecks, MonitorUp, PartyPopper, Rocket, Send, Square, Users } from 'lucide-react';
-import { counted } from '../lib/api';
+import { ArrowRight, Bell, ListChecks, MonitorUp, PartyPopper, Rocket, Send, Square } from 'lucide-react';
 import { errorMessage, openBoard } from '../lib/cloud';
 import { dueLabel, formatLongToday, today } from '../lib/dates';
 import { progressOf } from '../lib/mission';
 import { activeNow, isTarget, visibleNotices } from '../lib/visible';
-import { checkItems, markKey } from '../lib/types';
+import { checkItems } from '../lib/types';
 import { Badge, Button, Card, Input, LinkIcon, Progress, SectionTitle, cx, isValidUrl, normalizeUrl, toast } from '../ui/kit';
 import { SchoolToday } from '../ui/school';
 import { useData } from './data';
@@ -14,16 +13,12 @@ import type { Section } from './Workspace';
 export default function Dashboard({ go }: { go: (s: Section) => void }) {
   const d = useData();
   const t0 = today();
-  const active = d.tasks.filter((t) => t.due >= t0);
+  const active = d.tasks.filter((t) => t.due === t0); // 오늘 미션만
   const withChecks = active.filter((t) => checkItems(t).length > 0);
   const sids = d.students.map((s) => s.sid);
-  let todo = 0;
-  for (const t of withChecks)
-    for (const sid of sids.filter((s) => isTarget(t, s))) for (const i of checkItems(t)) if (!counted(d.statuses[sid]?.tasks?.[markKey(t.id, i.id)]?.state)) todo++;
   const finished = sids.filter((sid) => withChecks.some((t) => isTarget(t, sid)) && withChecks.every((t) => !isTarget(t, sid) || progressOf(t, d.statuses[sid]).all)).length;
   const notices = visibleNotices(d.live);
   const unreadTotal = notices.reduce((sum, n) => sum + sids.filter((sid) => !d.statuses[sid]?.reads?.[n.id]).length, 0);
-  const joined = Object.values(d.claimed).filter(Boolean).length;
 
   return (
     <div className="space-y-8">
@@ -37,11 +32,9 @@ export default function Dashboard({ go }: { go: (s: Section) => void }) {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Stat icon={<ListChecks size={18} />} label="미션 남은 체크" value={todo} unit="칸" onClick={() => go('tasks')} />
+      <div className="grid grid-cols-2 gap-3">
         <Stat icon={<PartyPopper size={18} />} label="미션 모두 끝낸 학생" value={finished} unit={`/ ${sids.length}명`} tone={sids.length && finished === sids.length ? 'ok' : undefined} onClick={() => go('tasks')} />
         <Stat icon={<Bell size={18} />} label="공지 안 읽음" value={unreadTotal} unit="건" onClick={() => go('notices')} />
-        <Stat icon={<Users size={18} />} label="참여한 학생" value={joined} unit={`/ ${d.info?.maxStudents ?? 0}명`} onClick={() => go('class')} />
       </div>
 
       <NowSender />
@@ -50,9 +43,9 @@ export default function Dashboard({ go }: { go: (s: Section) => void }) {
 
       <div className="grid lg:grid-cols-2 gap-6">
         <section>
-          <SectionTitle icon={<ListChecks size={18} />} title="진행 중인 미션" action={<Button variant="ghost" size="sm" onClick={() => go('tasks')}>미션 <ArrowRight size={15} /></Button>} />
+          <SectionTitle icon={<ListChecks size={18} />} title="오늘의 미션" action={<Button variant="ghost" size="sm" onClick={() => go('tasks')}>미션 <ArrowRight size={15} /></Button>} />
           <Card className="divide-y divide-line">
-            {active.length === 0 && <p className="p-5 text-sm text-ink-3">진행 중인 미션이 없어요.</p>}
+            {active.length === 0 && <p className="p-5 text-sm text-ink-3">오늘은 미션이 없어요.</p>}
             {active.slice(0, 6).map((t) => {
               const targets = sids.filter((sid) => isTarget(t, sid));
               const total = targets.length;

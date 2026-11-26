@@ -17,16 +17,13 @@
   --color-brand-hover: var(--c-brand-hover);
   --color-brand-strong: var(--c-brand-strong);
   --color-brand-soft: var(--c-brand-soft);
-  --color-on-brand: #ffffff;
+  --color-on-brand: var(--c-on-brand);
   --color-ok: var(--c-ok);
   --color-ok-soft: var(--c-ok-soft);
   --color-warn: var(--c-warn);
   --color-warn-soft: var(--c-warn-soft);
   --color-bad: var(--c-bad);
   --color-bad-soft: var(--c-bad-soft);
-
-  --shadow-card: 0 2px 4px rgb(214 140 190 / 0.06), 0 10px 24px -12px rgb(214 140 190 / 0.38);
-  --shadow-pop: 0 18px 44px -12px rgb(170 100 170 / 0.38);
 
   /* 솜사탕 파스텔: 모서리를 더 동글동글하게 */
   --radius-md: 0.6rem;
@@ -56,51 +53,24 @@
   --c-warn-soft: #fff4d9;
   --c-bad: #d9466e;
   --c-bad-soft: #ffe7ee;
+  --c-on-brand: #ffffff;
+  /* 테마마다 바뀌는 모양 값 (src/ui/skins.ts 가 덮어씀) */
+  --card-bw: 2px;
+  --card-line: #f6e3ee;
+  --brand-grad: linear-gradient(135deg, #ff9ec4 0%, #e48bd6 50%, #b79bff 100%);
+  --bar: linear-gradient(90deg, #ff9ec4, #ffc98a, #ffe27a, #8fe0b0, #8ec9ff, #c9a7ff);
+  --aurora: #fff7fb;
+  --btn-radius: 999px;
+  --shadow-card: 0 2px 4px rgb(214 140 190 / 0.06), 0 10px 24px -12px rgb(214 140 190 / 0.38);
+  --shadow-pop: 0 18px 44px -12px rgb(170 100 170 / 0.38);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    color-scheme: dark;
-    --c-canvas: #1d1627;
-    --c-surface: #271e33;
-    --c-surface-2: #30253f;
-    --c-ink: #fcf0fa;
-    --c-ink-2: #e0cfe8;
-    --c-ink-3: #b7a5c8;
-    --c-line: #3b2f4d;
-    --c-line-strong: #4d3e63;
-    --c-brand: #e46aa6;
-    --c-brand-hover: #ee7bb3;
-    --c-brand-strong: #ffb0d6;
-    --c-brand-soft: #43264a;
-    --c-ok: #7fe0ad;
-    --c-ok-soft: #173326;
-    --c-warn: #ffd27a;
-    --c-warn-soft: #3a2c14;
-    --c-bad: #ff8fab;
-    --c-bad-soft: #3d1b28;
-  }
+/* 그림자도 테마마다 바뀌도록 변수로 씀 */
+@utility shadow-card {
+  box-shadow: var(--shadow-card);
 }
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --c-canvas: #1d1627;
-  --c-surface: #271e33;
-  --c-surface-2: #30253f;
-  --c-ink: #fcf0fa;
-  --c-ink-2: #e0cfe8;
-  --c-ink-3: #b7a5c8;
-  --c-line: #3b2f4d;
-  --c-line-strong: #4d3e63;
-  --c-brand: #e46aa6;
-  --c-brand-hover: #ee7bb3;
-  --c-brand-strong: #ffb0d6;
-  --c-brand-soft: #43264a;
-  --c-ok: #7fe0ad;
-  --c-ok-soft: #173326;
-  --c-warn: #ffd27a;
-  --c-warn-soft: #3a2c14;
-  --c-bad: #ff8fab;
-  --c-bad-soft: #3d1b28;
+@utility shadow-pop {
+  box-shadow: var(--shadow-pop);
 }
 
 html {
@@ -122,23 +92,20 @@ body {
   outline-offset: 2px;
 }
 
-/* 배경 장식: 솜사탕 무지개 파스텔 */
+/* 배경 장식·주 버튼 색·진행 막대: 테마마다 다름 (src/ui/skins.ts) */
 .bg-aurora {
-  background:
-    radial-gradient(42rem 26rem at 0% 0%, color-mix(in oklab, #ffb3d1 38%, transparent), transparent 70%),
-    radial-gradient(36rem 24rem at 55% -10%, color-mix(in oklab, #ffe3a3 34%, transparent), transparent 70%),
-    radial-gradient(40rem 26rem at 100% 10%, color-mix(in oklab, #bfe6ff 40%, transparent), transparent 70%),
-    radial-gradient(44rem 30rem at 85% 100%, color-mix(in oklab, #d9c7ff 34%, transparent), transparent 70%),
-    radial-gradient(40rem 28rem at 10% 100%, color-mix(in oklab, #c9f2d6 34%, transparent), transparent 70%),
-    var(--c-canvas);
+  background: var(--aurora);
   background-attachment: fixed;
 }
 .bg-brand-gradient {
-  background: linear-gradient(135deg, #ff9ec4 0%, #e48bd6 50%, #b79bff 100%);
+  background: var(--brand-grad);
 }
-/* 무지개 띠 (진행 막대 등) */
 .bg-rainbow {
-  background: linear-gradient(90deg, #ff9ec4, #ffc98a, #ffe27a, #8fe0b0, #8ec9ff, #c9a7ff);
+  background: var(--bar);
+}
+/* 카드 테두리 (테마마다 굵기·색이 다름) */
+.ui-card {
+  border: var(--card-bw) solid var(--card-line);
 }
 
 .scrollbar-none::-webkit-scrollbar {

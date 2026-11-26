@@ -29,8 +29,8 @@ export interface Student {
 }
 
 // 바로가기 분류 (학생 화면에서는 맨 앞에 '전체'가 붙음)
-export const LINK_CATEGORIES = ['국어', '수학', '사회', '과학', '도덕', '미술', '실과', '기타'] as const;
-// 예전 분류(영어·예체능·도구·놀이 등)는 '기타'로 보여 줌
+export const LINK_CATEGORIES = ['국어', '수학', '사회', '과학', '영어', '도덕', '체육', '음악', '미술', '실과', '기타'] as const;
+// 예전 분류(예체능·도구·놀이 등)는 '기타'로 보여 줌
 export const linkCategory = (c: string) => ((LINK_CATEGORIES as readonly string[]).includes(c) ? c : '기타');
 
 export interface LinkItem {
@@ -151,11 +151,10 @@ export interface Role {
   name: string;
   icon: string;
 }
+// 1인1역: 역할 목록 + 주마다 선생님이 직접 정한 배정 (주의 월요일 → 역할 → 학생 sid 목록)
 export interface RolesDoc {
   items: Role[];
-  order: string[]; // 돌아가는 학생 순서 (sid)
-  start: string; // 순환을 시작한 주의 월요일
-  shift: number; // 선생님이 앞뒤로 옮긴 칸 수
+  weeks: Record<string, Record<string, string[]>>;
 }
 
 export const EVENT_KINDS = ['행사', '시험', '체험학습', '휴일', '기타'] as const;

@@ -3,7 +3,7 @@ import { Check, ChevronLeft, ChevronRight, Dices, Eraser, Expand, Eye, EyeOff, L
 import { emptyLive } from '../lib/api';
 import { errorMessage, getApi, loadPref, savePref } from '../lib/cloud';
 import { dueLabel, formatLongToday, today } from '../lib/dates';
-import { assignments } from '../lib/roles';
+import { weekOf } from '../lib/roles';
 import { LiveDoc, RolesDoc, Student, Task, markKey } from '../lib/types';
 import { cx } from '../ui/kit';
 
@@ -98,7 +98,7 @@ export default function BoardApp({ classId, missionId }: { classId: string; miss
 
   const t0 = today();
   const list = useMemo(() => {
-    const active = tasks.filter((t) => t.due >= t0);
+    const active = tasks.filter((t) => t.due === t0); // 오늘 미션
     const pick = current && tasks.find((t) => t.id === current);
     return pick && !active.includes(pick) ? [pick, ...active] : active;
   }, [tasks, t0, current]);
@@ -618,7 +618,7 @@ function RolesView({ roles, students, showNames, setShowNames }: { roles: RolesD
         <p className="text-[1em] b-ink2 mt-[0.4em]">교사 화면의 ‘1인1역’에서 역할을 만들어 보세요.</p>
       </div>
     );
-  const map = assignments(roles);
+  const map = weekOf(roles);
   const names = new Map(students.map((s) => [s.sid, s.name]));
   return (
     <div className="min-h-full px-[4%] py-[2.5%]">
@@ -630,7 +630,7 @@ function RolesView({ roles, students, showNames, setShowNames }: { roles: RolesD
       </div>
       <div className="grid gap-[0.5em]" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 11em), 1fr))' }}>
         {roles.items.map((r) => {
-          const sid = map[r.id];
+          const sids = map[r.id] || [];
           return (
             <div key={r.id} className="rounded-[0.5em] b-panel border b-line p-[0.6em] flex items-center gap-[0.5em]">
               <span className="text-[1.7em]" aria-hidden>
@@ -639,8 +639,17 @@ function RolesView({ roles, students, showNames, setShowNames }: { roles: RolesD
               <div className="min-w-0">
                 <p className="text-[0.75em] font-semibold b-ink2 truncate">{r.name}</p>
                 <p className="text-[1.2em] font-extrabold truncate">
-                  <span className="b-accent tabular-nums">{sid ? Number(sid.slice(1)) : '—'}번</span>
-                  {showNames && sid && names.get(sid) && <span className="ml-[0.3em]">{names.get(sid)}</span>}
+                  {sids.length === 0 ? (
+                    <span className="b-ink2">—</span>
+                  ) : (
+                    sids.map((sid, i) => (
+                      <span key={sid}>
+                        {i > 0 && <span className="b-ink2">, </span>}
+                        <span className="b-accent tabular-nums">{Number(sid.slice(1))}번</span>
+                        {showNames && names.get(sid) && <span className="ml-[0.25em]">{names.get(sid)}</span>}
+                      </span>
+                    ))
+                  )}
                 </p>
               </div>
             </div>

@@ -1,4 +1,4 @@
-// 1인1역 주간 순환: 매주 월요일마다 역할이 다음 학생에게 한 칸씩 넘어감
+// 1인1역: 주(월요일 기준)마다 선생님이 역할별 학생을 직접 배정
 import { RolesDoc } from './types';
 import { dayKey, today } from './dates';
 
@@ -11,27 +11,9 @@ export const mondayOf = (k: string = today()) => {
   const back = (d.getDay() + 6) % 7; // 월=0 … 일=6
   return dayKey(new Date(d.getFullYear(), d.getMonth(), d.getDate() - back));
 };
-export const weekIndex = (start: string, k: string = today()) => Math.round((parse(mondayOf(k)).getTime() - parse(mondayOf(start)).getTime()) / (7 * 86400000));
-
-// 역할 → 학생(sid). weekOffset: 0 이번 주, 1 다음 주
-export function assignments(r: RolesDoc, weekOffset = 0, day: string = today()): Record<string, string> {
-  const out: Record<string, string> = {};
-  const n = r.order.length;
-  if (!n) return out;
-  const w = (r.start ? weekIndex(r.start, day) : 0) + r.shift + weekOffset;
-  r.items.forEach((role, i) => {
-    out[role.id] = r.order[(((i + w) % n) + n) % n];
-  });
-  return out;
-}
-
-// 저장된 순서에 없는 학생은 뒤에 붙이고, 없어진 학생은 뺌
-export const effectiveOrder = (order: string[], sids: string[]) => {
-  const have = new Set(sids);
-  const kept = order.filter((s) => have.has(s));
-  const seen = new Set(kept);
-  return [...kept, ...sids.filter((s) => !seen.has(s))];
-};
+// 한 주의 배정 (역할 ID → 학생 sid 목록). 선생님이 주마다 직접 정함
+export const weekOf = (r: RolesDoc | null, monday: string = mondayOf()) => r?.weeks?.[monday] || {};
+export const rolesOfStudent = (r: RolesDoc | null, sid: string, monday: string = mondayOf()) => (r ? r.items.filter((x) => (weekOf(r, monday)[x.id] || []).includes(sid)) : []);
 
 export const ROLE_PRESETS: { name: string; icon: string }[] = [
   { name: '우유 당번', icon: '🥛' },

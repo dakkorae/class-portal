@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Bell, CalendarClock, CalendarDays, Check, ExternalLink, Home, ListChecks, LogOut, Megaphone, Pin, Sparkles, SquareArrowOutUpRight, UserRound } from 'lucide-react';
+import { Bell, CalendarDays, Check, ExternalLink, Home, ListChecks, LogOut, Megaphone, Pin, Sparkles, SquareArrowOutUpRight, UserRound } from 'lucide-react';
 import { Api, counted, emptyLive } from '../lib/api';
 import { errorMessage, getApi } from '../lib/cloud';
-import { addDays, dueLabel, formatDay, formatLongToday, formatTime, today } from '../lib/dates';
+import { addDays, formatDay, formatLongToday, formatTime, today } from '../lib/dates';
 import { progressOf } from '../lib/mission';
-import { assignments } from '../lib/roles';
+import { rolesOfStudent } from '../lib/roles';
 import { activeNow, isTarget, visibleNotices } from '../lib/visible';
-import { CalEvent, LINK_CATEGORIES, LinkItem, LiveDoc, NAME_CHANGE_DAYS, NAME_MAX, Notice, NoticeSummary, RolesDoc, SchoolInfo, Student, StudentSession, StudentStatus, Task, linkCategory, markKey } from '../lib/types';
-import { Badge, Button, Card, Empty, ErrorNote, Input, LinkIcon, Modal, Progress, SectionTitle, Spinner, cx, toast } from '../ui/kit';
+import { CalEvent, LINK_CATEGORIES, LinkItem, LiveDoc,  Notice, NoticeSummary, RolesDoc, SchoolInfo, Student, StudentSession, StudentStatus, Task, linkCategory, markKey } from '../lib/types';
+import { Badge, Button, Card, Empty, ErrorNote, LinkIcon, Modal, Progress, SectionTitle, Spinner, cx, toast } from '../ui/kit';
 import { KIND_TONE, MonthGrid, itemsByDay, monthRange } from '../ui/calendar';
 import { SchoolToday, useSchoolSchedule } from '../ui/school';
 import { TagBadge } from '../ui/tags';
+import DateNav from '../ui/DateNav';
+import { ThemeCard } from '../ui/ThemePicker';
 
 type Tab = 'home' | 'links' | 'calendar' | 'notices' | 'me';
 
@@ -28,6 +30,7 @@ export default function StudentPortal({ session, onSignedOut }: { session: Stude
   const [roles, setRoles] = useState<RolesDoc | null>(null);
   const [events, setEvents] = useState<CalEvent[]>([]);
   const [openNotice, setOpenNotice] = useState<NoticeSummary | null>(null);
+  const [day, setDay] = useState(today());
   const [error, setError] = useState('');
   const [, tick] = useState(0);
 
@@ -75,10 +78,11 @@ export default function StudentPortal({ session, onSignedOut }: { session: Stude
   const nowLink = activeNow(live);
   const t0 = today();
   const myTasks = useMemo(() => tasks.filter((t) => isTarget(t, sid)), [tasks, sid]);
-  const todo = myTasks.filter((t) => t.due >= t0);
-  const overdue = myTasks.filter((t) => t.due < t0 && t.due >= addDays(t0, -30) && progressOf(t, status).total > 0 && !progressOf(t, status).all);
+  // 고른 날짜의 미션만 보여 줌 (지난 날 미션은 날짜를 옮겨서 봄)
+  const todo = myTasks.filter((t) => t.due === day);
+  const marked = useMemo(() => new Set(myTasks.map((t) => t.due)), [myTasks]);
   const visibleLinks = links.filter((l) => !l.hidden);
-  const myRoles = roles ? roles.items.filter((r) => assignments(roles)[r.id] === sid) : [];
+  const myRoles = rolesOfStudent(roles, sid);
   const soon = events.filter((e) => (e.end || e.date) >= t0 && e.date <= addDays(t0, 7));
 
   const toggleItem = async (t: Task, itemId: string) => {
@@ -204,15 +208,18 @@ export default function StudentPortal({ session, onSignedOut }: { session: Stude
             <section>
               <SectionTitle
                 icon={<ListChecks size={18} />}
-                title="오늘의 미션"
+                title={day === t0 ? '오늘의 미션' : '미션'}
                 sub={(() => {
                   const left = todo.reduce((n, t) => n + (progressOf(t, status).total - progressOf(t, status).done), 0);
                   return todo.length ? (left ? `체크할 일 ${left}개 남았어요` : '모두 끝냈어요! 🎉') : undefined;
                 })()}
               />
-              {todo.length === 0 && overdue.length === 0 ? (
+              <div className="mb-3">
+                <DateNav value={day} onChange={setDay} marked={marked} />
+              </div>
+              {todo.length === 0 ? (
                 <Card>
-                  <Empty icon={<Check size={22} />} title="오늘은 미션이 없어요">
+                  <Empty icon={<Check size={22} />} title={day === t0 ? '오늘은 미션이 없어요' : '이날은 미션이 없어요'}>
                     선생님이 미션을 내면 여기에 보여요.
                   </Empty>
                 </Card>
@@ -221,18 +228,6 @@ export default function StudentPortal({ session, onSignedOut }: { session: Stude
                   {todo.map((t) => (
                     <MissionCard key={t.id} task={t} status={status} onToggle={(id) => toggleItem(t, id)} />
                   ))}
-                </div>
-              )}
-              {overdue.length > 0 && (
-                <div className="mt-5">
-                  <h3 className="text-sm font-bold text-warn mb-2 flex items-center gap-1.5">
-                    <CalendarClock size={16} /> 지난 미션 (아직 남았어요)
-                  </h3>
-                  <div className="grid gap-3 lg:grid-cols-2">
-                    {overdue.map((t) => (
-                      <MissionCard key={t.id} task={t} status={status} onToggle={(id) => toggleItem(t, id)} late />
-                    ))}
-                  </div>
                 </div>
               )}
             </section>
@@ -284,7 +279,7 @@ export default function StudentPortal({ session, onSignedOut }: { session: Stude
           </section>
         )}
 
-        {tab === 'me' && api && <MeTab api={api} session={session} me={me} onSignOut={async () => {
+        {tab === 'me' && api && <MeTab session={session} me={me} onSignOut={async () => {
           await api.leaveClass(classId);
           onSignedOut(false);
         }} />}
@@ -322,12 +317,12 @@ export default function StudentPortal({ session, onSignedOut }: { session: Stude
   );
 }
 
-function MissionCard({ task, status, onToggle, late }: { task: Task; status: StudentStatus; onToggle: (itemId: string) => void; late?: boolean }) {
+function MissionCard({ task, status, onToggle }: { task: Task; status: StudentStatus; onToggle: (itemId: string) => void }) {
   const p = progressOf(task, status);
   return (
     <Card className={cx('p-4 sm:p-5 transition', p.all && 'bg-ok-soft/50 border-ok/25')}>
       <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
-        <Badge tone={late ? 'warn' : task.due === today() ? 'brand' : 'neutral'}>{dueLabel(task.due)}</Badge>
+        <Badge tone={task.due === today() ? 'brand' : 'neutral'}>{task.due === today() ? '오늘' : formatDay(task.due)}</Badge>
         {p.all && <Badge tone="ok" icon={<Check size={12} />}>미션 완료</Badge>}
       </div>
       <h3 className="text-lg font-bold leading-snug break-words">{task.title}</h3>
@@ -519,54 +514,21 @@ function NoticeModal({ api, classId, summary, read, onRead, onClose }: { api: Ap
   );
 }
 
-function MeTab({ api, session, me, onSignOut }: { api: Api; session: StudentSession; me: Student | null; onSignOut: () => void }) {
-  const [name, setName] = useState(me?.name || '');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  useEffect(() => setName(me?.name || ''), [me?.name]);
-  const nextChange = me?.nameAt ? me.nameAt + NAME_CHANGE_DAYS * 86400000 : 0;
-  const locked = nextChange > Date.now();
-
-  const save = async () => {
-    if (!me) return;
-    const v = name.trim();
-    if (!v || v.length > NAME_MAX) return setError(`이름은 1~${NAME_MAX}글자로 써 주세요.`);
-    setBusy(true);
-    setError('');
-    try {
-      const r = await api.renameSelf(session.classId, me, v);
-      if (r === 'too-soon') setError(`이름은 ${NAME_CHANGE_DAYS}일에 한 번만 바꿀 수 있어요.`);
-      else toast('이름을 바꿨어요.');
-    } catch (e) {
-      setError(errorMessage(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
+function MeTab({ session, me, onSignOut }: { session: StudentSession; me: Student | null; onSignOut: () => void }) {
   return (
-    <section className="space-y-4 max-w-xl">
+    <section className="space-y-4 max-w-3xl">
       <SectionTitle icon={<UserRound size={18} />} title="나" />
       <Card className="p-5 flex items-center gap-4">
         <span className="w-14 h-14 rounded-2xl bg-brand-soft text-brand-strong text-2xl font-bold flex items-center justify-center shrink-0">{session.number}</span>
         <div className="min-w-0">
           <p className="text-xl font-bold truncate">{me?.name}</p>
-          <p className="text-ink-3 truncate">{session.className} · {session.number}번</p>
+          <p className="text-ink-3 truncate">
+            {session.className} · {session.number}번
+          </p>
+          <p className="text-xs text-ink-3 mt-1">이름이 틀렸으면 선생님께 말해 주세요.</p>
         </div>
       </Card>
-      <Card className="p-5 space-y-3">
-        <h3 className="font-bold">이름 바꾸기</h3>
-        <div className="flex gap-2">
-          <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={NAME_MAX} disabled={locked || busy} aria-label="새 이름" className="h-12 text-lg" />
-          <Button size="lg" onClick={save} loading={busy} disabled={locked || name.trim() === me?.name}>
-            저장
-          </Button>
-        </div>
-        <p className="text-sm text-ink-3">
-          {locked ? `${new Date(nextChange).toLocaleDateString('ko-KR')}부터 다시 바꿀 수 있어요.` : `${NAME_CHANGE_DAYS}일에 한 번 바꿀 수 있어요. 선생님은 언제든 고칠 수 있어요.`}
-        </p>
-        <ErrorNote>{error}</ErrorNote>
-      </Card>
+      <ThemeCard />
       <Card className="p-5 space-y-3">
         <h3 className="font-bold">이 기기에서 로그아웃</h3>
         <p className="text-[15px] text-ink-3">여럿이 함께 쓰는 기기라면 다 쓴 뒤 로그아웃해 주세요. 내 기록은 그대로 남아요.</p>

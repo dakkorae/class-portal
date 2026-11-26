@@ -199,7 +199,8 @@ service cloud.firestore {
           && request.resource.data.keys().hasOnly(['number', 'name', 'joined', 'nameAt'])
           && request.resource.data.number == int(sid[1:])
           && validName(request.resource.data.name);
-        // 처음 참여: 이름 확인 (교사가 넣어 둔 이름을 그대로 쓰거나 고침)
+        // 처음 참여: 교사가 넣어 둔 이름을 그대로 확인 (교사가 이름을 비워 둔 경우에만 학생이 한 번 정함)
+        // 그 뒤 이름은 교사만 바꿀 수 있음
         allow create: if isStudent(cid, sid)
           && request.resource.data.keys().hasOnly(['number', 'name', 'joined'])
           && request.resource.data.number == int(sid[1:])
@@ -210,14 +211,8 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['number', 'name', 'joined'])
           && request.resource.data.number == int(sid[1:])
           && request.resource.data.joined == true
-          && validName(request.resource.data.name);
-        // 본인이 이름 바꾸기: 30일에 한 번 (바꾼 때는 서버 시계로 기록)
-        allow update: if isStudent(cid, sid)
-          && resource.data.get('joined', false) == true
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'nameAt'])
           && validName(request.resource.data.name)
-          && request.resource.data.nameAt == request.time
-          && (!('nameAt' in resource.data) || request.time > resource.data.nameAt + duration.value(30, 'd'));
+          && (resource.data.get('name', '') == '' || request.resource.data.name == resource.data.name);
         allow delete: if canWipe(cid);
       }
 

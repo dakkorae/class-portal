@@ -16,10 +16,10 @@ const variants: Record<BtnVariant, string> = {
   soft: 'bg-brand-soft text-brand-strong hover:brightness-[0.97]'
 };
 const sizes: Record<BtnSize, string> = {
-  sm: 'h-9 px-3.5 text-sm rounded-full gap-1.5',
-  md: 'h-11 px-5 text-[15px] rounded-full gap-2',
-  lg: 'h-12 px-6 text-base rounded-full gap-2',
-  xl: 'h-14 px-7 text-lg rounded-full gap-2.5'
+  sm: 'h-9 px-3.5 text-sm rounded-[var(--btn-radius)] gap-1.5',
+  md: 'h-11 px-5 text-[15px] rounded-[var(--btn-radius)] gap-2',
+  lg: 'h-12 px-6 text-base rounded-[var(--btn-radius)] gap-2',
+  xl: 'h-14 px-7 text-lg rounded-[var(--btn-radius)] gap-2.5'
 };
 
 export function Button({
@@ -65,7 +65,7 @@ export function IconButton({ label, className, children, ...rest }: React.Button
 
 export function Card({ className, children, ...rest }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div {...rest} className={cx('bg-surface border-2 border-line rounded-2xl shadow-card', className)}>
+    <div {...rest} className={cx('bg-surface ui-card rounded-2xl shadow-card', className)}>
       {children}
     </div>
   );

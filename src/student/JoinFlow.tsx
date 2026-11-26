@@ -20,6 +20,8 @@ export default function JoinFlow({ onJoined, initialNumber }: { onJoined: (s: St
   const [pin, setPin] = useState('');
   const [firstPin, setFirstPin] = useState('');
   const [name, setName] = useState('');
+  // 선생님이 명단에 넣어 둔 이름이 있으면 학생은 확인만 함 (이름은 선생님만 바꿀 수 있음)
+  const [fixedName, setFixedName] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -94,6 +96,7 @@ export default function JoinFlow({ onJoined, initialNumber }: { onJoined: (s: St
           const me = await api.getStudent(cls.id, sid);
           if (!me?.joined) {
             setName(me?.name || '');
+            setFixedName(!!me?.name);
             setStep('name');
           } else finish(sid);
         } else {
@@ -140,6 +143,7 @@ export default function JoinFlow({ onJoined, initialNumber }: { onJoined: (s: St
           const me = await api.getStudent(cls!.id, 's' + number);
           if (me?.joined) return finish('s' + number);
           setName(me?.name || '');
+          setFixedName(!!me?.name);
           setStep('name');
         } catch (e) {
           setError(errorMessage(e));
@@ -277,7 +281,7 @@ export default function JoinFlow({ onJoined, initialNumber }: { onJoined: (s: St
               <KeyRound size={24} />
             </div>
             <h1 className="text-2xl font-bold tracking-tight">PIN을 정했어요!</h1>
-            <p className="text-ink-3 mt-1 mb-6 text-[17px]">마지막으로 내 이름을 확인해요. 이름 대신 별명을 써도 돼요.</p>
+            <p className="text-ink-3 mt-1 mb-6 text-[17px]">{fixedName ? '마지막으로 내 이름이 맞는지 확인해요.' : '마지막으로 내 이름을 적어요.'}</p>
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -285,11 +289,17 @@ export default function JoinFlow({ onJoined, initialNumber }: { onJoined: (s: St
               }}
               className="space-y-4"
             >
-              <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={NAME_MAX} placeholder="이름 또는 별명" aria-label="이름" className="h-14 text-xl font-semibold" autoFocus />
-              <p className="text-sm text-ink-3">1~{NAME_MAX}글자 · 나중에는 30일에 한 번만 바꿀 수 있어요.</p>
+              {fixedName ? (
+                <p className="h-14 rounded-xl bg-surface-2 border border-line px-4 flex items-center text-xl font-semibold" aria-label="이름">
+                  {number}번 {name}
+                </p>
+              ) : (
+                <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={NAME_MAX} placeholder="이름" aria-label="이름" className="h-14 text-xl font-semibold" autoFocus />
+              )}
+              <p className="text-sm text-ink-3">{fixedName ? '이름이 틀렸으면 선생님께 말해 주세요.' : `1~${NAME_MAX}글자 · 한 번 정하면 선생님만 바꿀 수 있어요.`}</p>
               <ErrorNote>{error}</ErrorNote>
               <Button type="submit" size="xl" className="w-full" loading={busy}>
-                시작하기
+                {fixedName ? '네, 맞아요 · 시작하기' : '시작하기'}
               </Button>
             </form>
           </Card>
