@@ -50,5 +50,20 @@ npx firebase emulators:exec --only firestore --project demo-portal "node rules-t
 ```
 화면은 체험용 빌드를 Playwright로 눌러 확인(폭 320~1920 넘침 점검). 커밋 메시지는 한국어 `feat(범위): …`.
 
+## 지금까지 (작업 기록)
+1. (11/26) PRD(claude.ai 문서 “우리 반 학급 포털 PRD”)를 읽고 MVP 1·2단계 전체 구현: 3단계 로그인, 링크·지금 열기, 과제 체크·현황판·템플릿, 공지(말머리·고정·예약·내림·그림 2장·읽음 확인·읽어 주기), TV 화면, 학급 관리(명단 붙여넣기·PIN 초기화·초대 QR·TV 주소·CSV·삭제), 가림 모드, PWA. 디자인: 인디고·바이올렛 그라데이션, Pretendard, 다크 모드 자동, TV는 늘 어두운 화면.
+2. PRD와 다르게 한 점: 학생 입장 순서 번호→PIN→이름(PIN 맞히기 전엔 이름 안 보이게) · 학급 이름·정원은 `public/roster`(학급 문서엔 개설 코드가 있어 교사·관리자만) · 링크는 문서 하나(`public/links`)에 모음(읽기 횟수 절약) · 호스팅은 Firebase Hosting(Vercel 설정 `vercel.json` 도 있음). 남은 작은 한계: 예약 공지의 **제목**은 `public/live` 요약에 들어 있어 개발자 도구로는 미리 보일 수 있음(본문·그림은 규칙이 막음).
+3. 보안 규칙 117가지 에뮬레이터 시험 통과. 규칙 경로는 `cls(cid, '모음', id)` 처럼 **조각을 나눠** 써야 함(`'teachers/' + uid` 한 문자열은 한 조각으로 취급돼 전부 실패했었음).
+4. Firebase 연결: CLI 로그인(플러그인 로그인 링크는 “Unable to verify client” 오류 → `firebase login --no-localhost` 로 받은 링크는 정상). 프로젝트 `uriban-portal` 생성(표시 이름에 한글 불가 → “Class Portal”), Firestore API 켜고 서울 리전 DB, 웹 앱, 익명 로그인(`firebase.json` 의 `auth` 항목으로 배포. Identity Platform 초기화는 유료라 쓰지 않음), 규칙·호스팅 배포.
+5. 실제 서버 시험(교사·학생·학생2·TV를 서로 다른 기기로)에서 학급 개설이 “권한이 없어요”로 막히던 문제 발견 → 학급 코드 중복 확인을 `public/roster` 로 바꿔 해결. 같은 브라우저 여러 탭(교사+TV)용 `persistentMultipleTabManager` 적용. 시험 자료는 모두 지움(데이터베이스 빈 상태에서 시작).
+6. 저장소 이름 `potal` → `class-portal` 로 바뀜(사용자가 GitHub에서 변경). 원격 주소 갱신.
+7. 관리자 키 등록값(`config/admin.keyHash`)을 사용자가 준 값으로 넣음(관리자 키 원문은 받지 않음). 맞는 값 통과·틀린 값 거부 확인. 다음 단계는 사용자가 `#admin` 에서 개설 코드 → `#teacher` 에서 학급 개설.
+
+## 작업 환경 메모 (클라우드 세션)
+- `web.app` 주소와 글꼴 CDN은 이 작업 환경에서 열리지 않음 → 실제 서버 시험은 `npm run build` 후 `dist` 를 `python3 -m http.server` 로 띄워 Playwright로(서버는 진짜 Firebase에 연결됨).
+- Firebase CLI 로그인은 세션마다 다시 필요할 수 있음: `firebase login --no-localhost` 링크를 사용자에게 주고(세션 ID 확인 안내) 받은 코드로 `firebase login <코드>`.
+- 소유자 권한으로 Firestore 문서를 직접 고칠 때는 CLI 로그인 토큰으로 REST 호출(관리자 키 등록 등). 시험용 자료는 반드시 지움.
+- 사용자는 한국어 설명을 원함(계속 한국어로).
+
 ## 다음 (2차, PRD 4-5)
 나이스 급식·시간표(브라우저 호출), 타이머·번호 뽑기(TV), 1인1역 주간 순환, 학급 달력. 보상 기능은 보류.
