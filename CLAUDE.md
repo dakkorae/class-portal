@@ -5,8 +5,8 @@
 ## 한눈에
 - 학급 포털 웹앱. 기획서: 우리 반 학급 포털 PRD (claude.ai 문서). MVP = 로그인(관리자·교사·학생) + 링크·지금 열기 + 과제 체크 + 공지 + TV 화면.
 - React 19 + TypeScript + Vite 6 + Tailwind 4, PWA(`public/sw.js`, `manifest.webmanifest`). 서버는 Firebase Spark(Firestore 서울 + 익명 로그인). Functions·Storage 쓰지 않음.
-- Firebase 프로젝트 `uriban-portal`(계정 dakkorae), 배포 주소 https://uriban-portal.web.app . 저장소 `dakkorae/class-portal` 의 `main` (예전 이름 `potal` 에서 바뀜. 작업이 끝나면 `main` 에 바로 커밋·푸시).
-- 배포: `npm run build && npx firebase-tools deploy --only firestore:rules,auth,hosting` (규칙을 바꾸면 이 명령으로 같이 올라감).
+- Firebase 프로젝트 `uriban-portal`(계정 dakkorae), 배포 주소 https://uriban-portal.web.app 와 Vercel https://potal-sand.vercel.app (GitHub `main` 에 올리면 Vercel이 자동 배포). 저장소 `dakkorae/class-portal` 의 `main` (예전 이름 `potal` 에서 바뀜. 작업이 끝나면 `main` 에 바로 커밋·푸시).
+- 배포: Vercel은 푸시만 하면 자동. Firebase Hosting·규칙은 `npm run build && npx firebase-tools deploy --only firestore:rules,auth,hosting` (규칙을 바꾸면 이 명령으로 같이 올라감).
 - 주소로 화면 나누기(`src/App.tsx`): `/` 학생, `#teacher`, `#admin`, `#tv/학급코드/비밀값`. 교사·관리자·TV 화면은 `lazy()` 로 따로 내려받음.
 - IB 대시보드(dakkorae/IBL)의 로그인·개설 코드·재설정 코드·규칙 시험 방식을 가져와 고쳐 씀.
 
@@ -59,8 +59,10 @@ npx firebase emulators:exec --only firestore --project demo-portal "node rules-t
 6. 저장소 이름 `potal` → `class-portal` 로 바뀜(사용자가 GitHub에서 변경). 원격 주소 갱신.
 7. 관리자 키 등록값(`config/admin.keyHash`)을 사용자가 준 값으로 넣음(관리자 키 원문은 받지 않음). 맞는 값 통과·틀린 값 거부 확인. 다음 단계는 사용자가 `#admin` 에서 개설 코드 → `#teacher` 에서 학급 개설.
 
+8. 사용자가 Vercel 계정에 GitHub 저장소를 직접 연결 → https://potal-sand.vercel.app (`vercel.json` 그대로, 환경 변수 없음). 두 주소 모두 같은 Firebase 자료를 쓰지만 기기 로그인 정보는 주소마다 따로라 학생 안내 주소는 하나로.
+
 ## 작업 환경 메모 (클라우드 세션)
-- `web.app` 주소와 글꼴 CDN은 이 작업 환경에서 열리지 않음 → 실제 서버 시험은 `npm run build` 후 `dist` 를 `python3 -m http.server` 로 띄워 Playwright로(서버는 진짜 Firebase에 연결됨).
+- `web.app`·`vercel.app` 주소와 글꼴 CDN은 이 작업 환경에서 열리지 않음 → 실제 서버 시험은 `npm run build` 후 `dist` 를 `python3 -m http.server` 로 띄워 Playwright로(서버는 진짜 Firebase에 연결됨).
 - Firebase CLI 로그인은 세션마다 다시 필요할 수 있음: `firebase login --no-localhost` 링크를 사용자에게 주고(세션 ID 확인 안내) 받은 코드로 `firebase login <코드>`.
 - 소유자 권한으로 Firestore 문서를 직접 고칠 때는 CLI 로그인 토큰으로 REST 호출(관리자 키 등록 등). 시험용 자료는 반드시 지움.
 - 사용자는 한국어 설명을 원함(계속 한국어로).
