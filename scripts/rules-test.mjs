@@ -48,7 +48,7 @@ const createClass = (db, uid, cid, invite, extra = {}) => {
   b.set(c(db, 'teachers/' + uid, cid), { keyHash: 'TK' });
   b.set(c(db, 'secrets/tv', cid), { token: 'TVTOKEN-0123456789abcdef' });
   b.set(c(db, 'public/roster', cid), { name: '5-3', maxStudents: 3, claimed: {} });
-  b.set(c(db, 'public/live', cid), { now: null, notices: {}, tasks: {}, done: {} });
+  b.set(c(db, 'public/live', cid), { now: null, notices: {}, tasks: {}, checks: {}, done: {} });
   b.set(c(db, 'public/links', cid), { items: {} });
   b.update(doc(db, 'inviteCodes/' + invite), { usedCount: 1 });
   return b.commit();
@@ -139,46 +139,59 @@ await no('예전 주소 TV가 실시간 문서 읽기', getDoc(c(TV, 'public/liv
 await no('짧은 TV 비밀 값', setDoc(c(T, 'secrets/tv'), { token: 'short' }));
 
 // ---------- 7. 링크·지금 열기 ----------
-await ok('교사가 링크 추가', updateDoc(c(T, 'public/links'), { 'items.l1': { id: 'l1', title: '클래스카드', url: 'https://classcard.net', category: '영어', icon: '', order: 0, pinned: true, hidden: false } }));
+await ok('교사가 링크 추가', updateDoc(c(T, 'public/links'), { 'items.l1': { id: 'l1', title: '클래스카드', url: 'https://classcard.net', category: '국어', icon: '', order: 0, pinned: true, hidden: false } }));
 await no('학생이 링크 추가', updateDoc(c(A, 'public/links'), { 'items.l2': { id: 'l2', title: 'bad', url: 'https://bad' } }));
 await ok('학생이 링크 읽기', getDoc(c(A, 'public/links')));
 await ok('교사가 지금 열기 보내기', updateDoc(c(T, 'public/live'), { now: { title: '클래스카드', url: 'https://classcard.net', icon: '', day: '2026-11-26', at: 1 } }));
 await no('학생이 지금 열기 바꾸기', updateDoc(c(A, 'public/live'), { now: { title: 'game', url: 'https://game' } }));
 await ok('학생이 실시간 문서 읽기', getDoc(c(A, 'public/live')));
 
-// ---------- 8. 과제 ----------
-await ok('교사가 과제 만들기', (() => {
+// ---------- 8. 미션 ----------
+const K = 't1_i1'; // 완료 체크 칸 (미션ID_줄ID)
+await ok('교사가 미션 만들기', (() => {
   const b = writeBatch(T);
-  b.set(c(T, 'tasks/t1'), { id: 't1', title: '독서록', desc: '', due: '2026-11-27', targets: null, linkUrl: '', paper: false, createdAt: 1 });
+  const items = [{ id: 'i1', text: '독서', check: true, sub: false }, { id: 'i2', text: '우유 배달', check: false, sub: false }];
+  b.set(c(T, 'tasks/t1'), { id: 't1', title: '아침 미션', items, due: '2026-11-27', targets: null, linkUrl: '', createdAt: 1 });
   b.update(c(T), { 'refs.t1': true });
-  b.update(c(T, 'public/live'), { 'tasks.t1': { title: '독서록', due: '2026-11-27', total: 2, paper: false } });
+  b.update(c(T, 'public/live'), { 'tasks.t1': { title: '아침 미션', due: '2026-11-27', total: 2, items, targets: null }, ['checks.' + K]: true });
   return b.commit();
 })());
-await no('학생이 과제 만들기', setDoc(c(A, 'tasks/t2'), { title: 'x' }));
-await ok('학생이 과제 목록 읽기', getDocs(collection(A, 'classes/C1/tasks')));
-const markDone = (db, sid, tid, state, delta) => {
+await no('학생이 미션 만들기', setDoc(c(A, 'tasks/t2'), { title: 'x' }));
+await ok('학생이 미션 목록 읽기', getDocs(collection(A, 'classes/C1/tasks')));
+const markDone = (db, sid, key, state, delta) => {
   const b = writeBatch(db);
-  b.set(c(db, 'status/' + sid), { tasks: { [tid]: { state, at: serverTimestamp() } }, last: tid }, { merge: true });
-  if (delta) b.update(c(db, 'public/live'), { ['done.' + tid]: increment(delta), doneLast: tid });
+  b.set(c(db, 'status/' + sid), { tasks: { [key]: { state, at: serverTimestamp() } }, last: key }, { merge: true });
+  if (delta) b.update(c(db, 'public/live'), { ['done.' + key]: increment(delta), doneLast: key });
   return b.commit();
 };
-await ok('A 다 했어요', markDone(A, 's1', 't1', 'done', 1));
-await no('A가 스스로 확인 처리', markDone(A, 's1', 't1', 'checked', 0));
-await no('A가 B 기록 쓰기', markDone(A, 's2', 't1', 'done', 0));
+await ok('A 완료 체크', markDone(A, 's1', K, 'done', 1));
+await no('A가 이상한 상태 쓰기', markDone(A, 's1', K, 'checked', 0));
+await no('A가 B 기록 쓰기', markDone(A, 's2', K, 'done', 0));
 await no('A가 B 기록 읽기', getDoc(c(A, 'status/s2')));
 await ok('A가 자기 기록 읽기', getDoc(c(A, 'status/s1')));
-await no('완료 인원수 한 번에 +5', updateDoc(c(A, 'public/live'), { 'done.t1': increment(5), doneLast: 't1' }));
-await no('없는 과제의 완료 인원수', updateDoc(c(A, 'public/live'), { 'done.zz': increment(1), doneLast: 'zz' }));
-await ok('A 되돌리기', markDone(A, 's1', 't1', 'todo', -1));
-await ok('A 다시 다 했어요', markDone(A, 's1', 't1', 'done', 1));
-await ok('교사가 확인', setDoc(c(T, 'status/s1'), { tasks: { t1: { state: 'checked', at: serverTimestamp() } } }, { merge: true }));
-await no('확인된 과제를 학생이 되돌리기', markDone(A, 's1', 't1', 'todo', 0));
-await ok('교사가 다시 해요 + 메모', setDoc(c(T, 'status/s1'), { tasks: { t1: { state: 'redo', note: '3번 더 써요', at: serverTimestamp() } } }, { merge: true }));
-await ok('다시 해요 뒤 학생이 다 했어요(메모 유지)', markDone(A, 's1', 't1', 'done', 0));
-await no('학생이 교사 메모 바꾸기', setDoc(c(A, 'status/s1'), { tasks: { t1: { state: 'done', note: '', at: serverTimestamp() } }, last: 't1' }, { merge: true }));
+await no('완료 인원수 한 번에 +5', updateDoc(c(A, 'public/live'), { ['done.' + K]: increment(5), doneLast: K }));
+await no('완료 체크 칸이 아닌 줄의 인원수', updateDoc(c(A, 'public/live'), { 'done.t1_i2': increment(1), doneLast: 't1_i2' }));
+await no('미션 이름으로 인원수 바꾸기', updateDoc(c(A, 'public/live'), { 'done.t1': increment(1), doneLast: 't1' }));
+await no('학생이 완료 칸 목록 바꾸기', updateDoc(c(A, 'public/live'), { 'checks.zz': true }));
+await ok('A 되돌리기', markDone(A, 's1', K, 'todo', -1));
+await ok('A 다시 완료', markDone(A, 's1', K, 'done', 1));
+await no('학생이 기록에 메모 넣기', setDoc(c(A, 'status/s1'), { tasks: { [K]: { state: 'done', note: 'x', at: serverTimestamp() } }, last: K }, { merge: true }));
+await no('한 번에 두 칸 체크', setDoc(c(A, 'status/s1'), { tasks: { a_1: { state: 'done', at: serverTimestamp() }, a_2: { state: 'done', at: serverTimestamp() } }, last: 'a_1' }, { merge: true }));
 await ok('교사가 기록 목록 보기', getDocs(collection(T, 'classes/C1/status')));
-await ok('교사가 템플릿 저장', setDoc(c(T, 'private/templates'), { items: { a: { id: 'a', title: '독서록' } } }, { merge: true }));
+await ok('교사가 템플릿 저장', setDoc(c(T, 'private/templates'), { items: { a: { id: 'a', title: '아침 미션', items: [] } } }, { merge: true }));
 await no('학생이 템플릿 읽기', getDoc(c(A, 'private/templates')));
+
+// ---------- 8-2. 학교(나이스) · 1인1역 · 학급 달력 ----------
+await ok('TV 새 주소로 다시 등록', setDoc(c(TV, 'screens/tv'), { token: 'NEWTOKEN-0123456789abcdef' }));
+for (const doc of ['school', 'roles', 'calendar']) {
+  await ok(`교사가 ${doc} 쓰기`, setDoc(c(T, 'public/' + doc), { items: {}, v: 1 }, { merge: true }));
+  await ok(`학생이 ${doc} 읽기`, getDoc(c(A, 'public/' + doc)));
+  await ok(`TV가 ${doc} 읽기`, getDoc(c(TV, 'public/' + doc)));
+  await no(`학생이 ${doc} 쓰기`, setDoc(c(A, 'public/' + doc), { v: 2 }, { merge: true }));
+  await no(`외부인이 ${doc} 읽기`, getDoc(c(X, 'public/' + doc)));
+}
+await no('교사가 정해지지 않은 public 문서 쓰기', setDoc(c(T, 'public/other'), { v: 1 }));
+await no('학생이 정해지지 않은 public 문서 읽기', getDoc(c(A, 'public/other')));
 
 // ---------- 9. 공지 ----------
 const future = Timestamp.fromMillis(Date.now() + 86400000);
@@ -232,7 +245,7 @@ await ok('관리자가 코드별 학급 보기', getDocs(query(collection(AD, 'c
 const wipe = async (db) => {
   const paths = [];
   for (let n = 1; n <= 3; n++) for (const col of ['students', 'pins', 'status']) paths.push(`${col}/s${n}`);
-  paths.push('tasks/t1', 'notices/n1', 'notices/n2');
+  paths.push('tasks/t1', 'notices/n1', 'notices/n2', 'public/school', 'public/roles', 'public/calendar');
   for (const col of ['members', 'screens', 'teachers']) (await getDocs(collection(db, `classes/C1/${col}`))).docs.forEach((d) => paths.push(`${col}/${d.id}`));
   paths.push('public/roster', 'public/live', 'public/links', 'private/templates', 'secrets/reset', 'secrets/tv', 'secrets/teacher');
   for (let i = 0; i < paths.length; i += 10) {

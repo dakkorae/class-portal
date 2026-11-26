@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { CheckCircle2, Maximize, Megaphone, QrCode, Sparkles, TvMinimal } from 'lucide-react';
+import { ListChecks, Maximize, Megaphone, QrCode, Sparkles, TvMinimal } from 'lucide-react';
 import { emptyLive } from '../lib/api';
 import { errorMessage, getApi, inviteUrl } from '../lib/cloud';
 import { dueLabel, formatLongToday, today } from '../lib/dates';
 import { activeNow, visibleNotices } from '../lib/visible';
-import { LiveDoc } from '../lib/types';
+import { LiveDoc, checkItems, markKey } from '../lib/types';
 import { cx } from '../ui/kit';
 
 // 교실 TV(전자칠판) 화면: 읽기 전용, 학생 이름은 보이지 않음
@@ -152,27 +152,43 @@ export default function TvApp({ classId, token }: { classId: string; token: stri
           )}
         </Panel>
 
-        <Panel icon={<CheckCircle2 />} title="오늘 과제">
+        <Panel icon={<ListChecks />} title="오늘 미션">
           {tasks.length === 0 ? (
-            <Quiet>남은 과제가 없어요</Quiet>
+            <Quiet>남은 미션이 없어요</Quiet>
           ) : (
             <ul className="space-y-[0.9em]">
               {tasks.map(([id, t]) => {
-                const done = Math.min(live.done[id] || 0, t.total);
-                const pct = t.total ? Math.round((done / t.total) * 100) : 0;
-                const all = t.total > 0 && done >= t.total;
+                const checks = checkItems(t);
                 return (
                   <li key={id} className="rounded-[1em] bg-surface-2 border border-line p-[1em]">
                     <div className="flex items-baseline justify-between gap-3">
                       <p className="text-[1.45em] font-bold leading-snug min-w-0">{t.title}</p>
                       <span className={cx('text-[1em] font-semibold shrink-0', t.due === t0 ? 'text-brand-strong' : 'text-ink-3')}>{dueLabel(t.due)}</span>
                     </div>
-                    <div className="mt-[0.7em] h-[0.7em] rounded-full bg-canvas overflow-hidden">
-                      <div className={cx('h-full rounded-full transition-[width] duration-700', all ? 'bg-ok' : 'bg-brand')} style={{ width: `${pct}%` }} />
-                    </div>
-                    <p className="mt-[0.5em] text-[1.2em] font-semibold text-ink-2 tabular-nums">
-                      {t.total}명 중 <span className={cx('text-[1.3em] font-bold', all ? 'text-ok' : 'text-ink')}>{done}명</span> 완료 {all && '🎉'}
-                    </p>
+                    {checks.length === 0 ? (
+                      <p className="mt-[0.4em] text-[1.1em] text-ink-2 line-clamp-2">{(t.items || []).map((i) => i.text).join(' · ')}</p>
+                    ) : (
+                      <ul className="mt-[0.6em] space-y-[0.5em]">
+                        {checks.slice(0, 4).map((i) => {
+                          const done = Math.min(live.done[markKey(id, i.id)] || 0, t.total);
+                          const all = t.total > 0 && done >= t.total;
+                          return (
+                            <li key={i.id}>
+                              <div className="flex items-baseline justify-between gap-2 text-[1.1em]">
+                                <span className="font-semibold text-ink-2 truncate min-w-0">{i.text}</span>
+                                <span className={cx('font-bold tabular-nums shrink-0', all ? 'text-ok' : 'text-ink')}>
+                                  {done}/{t.total}
+                                  {all && ' 🎉'}
+                                </span>
+                              </div>
+                              <div className="mt-[0.3em] h-[0.5em] rounded-full bg-canvas overflow-hidden">
+                                <div className={cx('h-full rounded-full transition-[width] duration-700', all ? 'bg-ok' : 'bg-brand')} style={{ width: `${t.total ? Math.round((done / t.total) * 100) : 0}%` }} />
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
                   </li>
                 );
               })}

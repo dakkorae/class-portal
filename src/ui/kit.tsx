@@ -1,3 +1,4 @@
+import { tileColors } from './tiles';
 import React, { ReactNode, useEffect, useRef, useState } from 'react';
 import { Check, Copy, Loader2, X } from 'lucide-react';
 
@@ -298,7 +299,8 @@ export function Toaster() {
 }
 
 // 사이트 아이콘(파비콘) 또는 이모지
-export function LinkIcon({ url, icon, size = 40, className }: { url: string; icon?: string; size?: number; className?: string }) {
+// 바로가기 아이콘: 반짝이는 3D 타일 (그림을 고르면 분류 색 타일, 안 고르면 흰 타일 + 사이트 아이콘)
+export function LinkIcon({ url, icon, size = 40, className, category }: { url: string; icon?: string; size?: number; className?: string; category?: string }) {
   const [failed, setFailed] = useState(false);
   let host = '';
   try {
@@ -306,12 +308,22 @@ export function LinkIcon({ url, icon, size = 40, className }: { url: string; ico
   } catch {
     host = '';
   }
-  const box = cx('flex items-center justify-center rounded-xl bg-surface-2 border border-line shrink-0 overflow-hidden', className);
-  if (icon) return <span className={box} style={{ width: size, height: size, fontSize: size * 0.52 }} aria-hidden>{icon}</span>;
-  if (!host || failed) return <span className={cx(box, 'font-bold text-ink-3')} style={{ width: size, height: size, fontSize: size * 0.4 }} aria-hidden>{(host[0] || '?').toUpperCase()}</span>;
+  const radius = Math.round(size * 0.28);
+  if (icon) {
+    const [c1, c2] = tileColors(icon, category);
+    return (
+      <span className={cx('tile3d', className)} style={{ width: size, height: size, borderRadius: radius, fontSize: size * 0.54, ['--t1' as string]: c1, ['--t2' as string]: c2 }} aria-hidden>
+        <span className="tile3d-emoji">{icon}</span>
+      </span>
+    );
+  }
   return (
-    <span className={box} style={{ width: size, height: size }} aria-hidden>
-      <img src={`https://www.google.com/s2/favicons?domain=${host}&sz=64`} alt="" width={size * 0.55} height={size * 0.55} loading="lazy" onError={() => setFailed(true)} />
+    <span className={cx('tile3d tile3d-white', className)} style={{ width: size, height: size, borderRadius: radius, fontSize: size * 0.42 }} aria-hidden>
+      {!host || failed ? (
+        <span className="font-bold text-[#4b5068]">{(host.replace(/^www\./, '')[0] || '?').toUpperCase()}</span>
+      ) : (
+        <img src={`https://www.google.com/s2/favicons?domain=${host}&sz=64`} alt="" width={Math.round(size * 0.56)} height={Math.round(size * 0.56)} loading="lazy" onError={() => setFailed(true)} className="relative" />
+      )}
     </span>
   );
 }

@@ -227,7 +227,7 @@ function NoticeEditor({ initial, onClose }: { initial: Partial<Notice>; onClose:
           <Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={60} placeholder="예: 내일 체육복 챙겨 오기" autoFocus={!initial.id} />
         </Field>
         <Field label="내용">
-          <Textarea value={body} onChange={(e) => setBody(e.target.value)} rows={5} maxLength={2000} disabled={loading} placeholder={loading ? '불러오는 중…' : '학생이 읽을 내용 (읽어 주기 버튼으로 소리 내어 들을 수도 있어요)'} />
+          <Textarea value={body} onChange={(e) => setBody(e.target.value)} rows={5} maxLength={2000} disabled={loading} placeholder={loading ? '불러오는 중…' : '학생이 읽을 내용'} />
         </Field>
         <div>
           <span className="block text-sm font-semibold text-ink-2 mb-1.5">그림 (최대 {MAX_IMAGES}장 · 올릴 때 자동으로 작게 줄여요)</span>

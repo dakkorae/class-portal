@@ -1,22 +1,26 @@
 import { useState } from 'react';
-import { ChevronDown, ClipboardCheck, Eye, EyeOff, LayoutDashboard, Link2, LogOut, Megaphone, Settings2, Sparkles, TvMinimal } from 'lucide-react';
+import { CalendarDays, ChevronDown, Eye, EyeOff, LayoutDashboard, ListChecks, LogOut, Megaphone, MonitorUp, Settings2, Sparkles, SquareArrowOutUpRight, UsersRound } from 'lucide-react';
 import { Api } from '../lib/api';
-import { loadPref, savePref, tvUrl } from '../lib/cloud';
+import { loadPref, openBoard, savePref } from '../lib/cloud';
 import { Button, ErrorNote, IconButton, Spinner, cx, toast } from '../ui/kit';
 import { DataContext, useClassData } from './data';
 import Dashboard from './Dashboard';
 import LinksPanel from './LinksPanel';
-import TasksPanel from './TasksPanel';
+import MissionsPanel from './MissionsPanel';
 import NoticesPanel from './NoticesPanel';
 import ClassPanel from './ClassPanel';
+import RolesPanel from './RolesPanel';
+import CalendarPanel from './CalendarPanel';
 
-export type Section = 'home' | 'links' | 'tasks' | 'notices' | 'class';
+export type Section = 'home' | 'links' | 'tasks' | 'notices' | 'roles' | 'calendar' | 'class';
 
 const NAV: { id: Section; label: string; icon: React.ReactNode }[] = [
   { id: 'home', label: '대시보드', icon: <LayoutDashboard size={19} /> },
-  { id: 'links', label: '링크', icon: <Link2 size={19} /> },
-  { id: 'tasks', label: '과제', icon: <ClipboardCheck size={19} /> },
+  { id: 'tasks', label: '미션', icon: <ListChecks size={19} /> },
+  { id: 'links', label: '바로가기', icon: <SquareArrowOutUpRight size={19} /> },
   { id: 'notices', label: '공지', icon: <Megaphone size={19} /> },
+  { id: 'roles', label: '1인1역', icon: <UsersRound size={19} /> },
+  { id: 'calendar', label: '학급 달력', icon: <CalendarDays size={19} /> },
   { id: 'class', label: '학급 관리', icon: <Settings2 size={19} /> }
 ];
 
@@ -49,13 +53,9 @@ export default function Workspace({
     window.scrollTo({ top: 0 });
   };
 
-  const openTv = async () => {
-    try {
-      const token = await api.getTvToken(classId);
-      window.open(tvUrl(classId, token), '_blank', 'noopener');
-    } catch {
-      toast('TV 주소를 만들지 못했어요.');
-    }
+  // TV 화면 열기: 오늘 미션을 새 창에 크게 띄움 (판서·타이머·번호 뽑기 함께)
+  const openTv = () => {
+    if (!openBoard(classId)) toast('새 창이 막혔어요. 브라우저 주소창 오른쪽에서 팝업을 허용해 주세요.');
   };
 
   const name = data.info?.name || savedClasses.find((c) => c.id === classId)?.name || classId;
@@ -84,7 +84,7 @@ export default function Workspace({
             ))}
           </nav>
           <div className="mt-auto space-y-1">
-            <SideAction icon={<TvMinimal size={18} />} label="TV 화면 열기" onClick={openTv} />
+            <SideAction icon={<MonitorUp size={18} />} label="TV 화면 열기" onClick={openTv} />
             <SideAction
               icon={privacy ? <EyeOff size={18} /> : <Eye size={18} />}
               label={privacy ? '가림 모드 켜짐' : '가림 모드'}
@@ -106,7 +106,7 @@ export default function Workspace({
                 <ClassSwitcher name={name} classId={classId} saved={savedClasses} open={menu} setOpen={setMenu} onSwitch={onSwitch} onClose={onClose} compact />
               </div>
               <IconButton label="TV 화면 열기" onClick={openTv}>
-                <TvMinimal size={19} />
+                <MonitorUp size={19} />
               </IconButton>
               <IconButton
                 label={privacy ? '가림 모드 끄기' : '가림 모드 켜기'}
@@ -152,8 +152,10 @@ export default function Workspace({
               <>
                 {section === 'home' && <Dashboard go={go} />}
                 {section === 'links' && <LinksPanel />}
-                {section === 'tasks' && <TasksPanel />}
+                {section === 'tasks' && <MissionsPanel />}
                 {section === 'notices' && <NoticesPanel />}
+                {section === 'roles' && <RolesPanel />}
+                {section === 'calendar' && <CalendarPanel />}
                 {section === 'class' && <ClassPanel onClassName={onClassName} onLogout={onLogout} onDeleted={onDeleted} />}
               </>
             )}

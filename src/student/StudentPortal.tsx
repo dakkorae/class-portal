@@ -1,14 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Bell, CalendarClock, Check, CheckCircle2, ExternalLink, Home, Link2, LogOut, Megaphone, Pin, RotateCcw, Sparkles, UserRound, Volume2, VolumeX } from 'lucide-react';
-import { Api, emptyLive } from '../lib/api';
+import { Bell, CalendarClock, CalendarDays, Check, ExternalLink, Home, ListChecks, LogOut, Megaphone, Pin, Sparkles, SquareArrowOutUpRight, UserRound } from 'lucide-react';
+import { Api, counted, emptyLive } from '../lib/api';
 import { errorMessage, getApi } from '../lib/cloud';
-import { addDays, dueLabel, formatLongToday, formatTime, today } from '../lib/dates';
+import { addDays, dueLabel, formatDay, formatLongToday, formatTime, today } from '../lib/dates';
+import { progressOf } from '../lib/mission';
+import { assignments } from '../lib/roles';
 import { activeNow, isTarget, visibleNotices } from '../lib/visible';
-import { LinkItem, LiveDoc, NAME_CHANGE_DAYS, NAME_MAX, Notice, NoticeSummary, Student, StudentSession, StudentStatus, Task } from '../lib/types';
-import { Badge, Button, Card, Empty, ErrorNote, Input, LinkIcon, Modal, SectionTitle, Spinner, cx, toast } from '../ui/kit';
+import { CalEvent, LINK_CATEGORIES, LinkItem, LiveDoc, NAME_CHANGE_DAYS, NAME_MAX, Notice, NoticeSummary, RolesDoc, SchoolInfo, Student, StudentSession, StudentStatus, Task, linkCategory, markKey } from '../lib/types';
+import { Badge, Button, Card, Empty, ErrorNote, Input, LinkIcon, Modal, Progress, SectionTitle, Spinner, cx, toast } from '../ui/kit';
+import { KIND_TONE, MonthGrid, itemsByDay, monthRange } from '../ui/calendar';
+import { SchoolToday, useSchoolSchedule } from '../ui/school';
 import { TagBadge } from '../ui/tags';
 
-type Tab = 'home' | 'links' | 'notices' | 'me';
+type Tab = 'home' | 'links' | 'calendar' | 'notices' | 'me';
 
 export default function StudentPortal({ session, onSignedOut }: { session: StudentSession; onSignedOut: (relogin: boolean) => void }) {
   const { classId, sid } = session;
@@ -20,6 +24,9 @@ export default function StudentPortal({ session, onSignedOut }: { session: Stude
   const [tasks, setTasks] = useState<Task[]>([]);
   const [status, setStatus] = useState<StudentStatus>({ tasks: {}, reads: {} });
   const [me, setMe] = useState<Student | null>(null);
+  const [school, setSchool] = useState<SchoolInfo | null>(null);
+  const [roles, setRoles] = useState<RolesDoc | null>(null);
+  const [events, setEvents] = useState<CalEvent[]>([]);
   const [openNotice, setOpenNotice] = useState<NoticeSummary | null>(null);
   const [error, setError] = useState('');
   const [, tick] = useState(0);
@@ -50,7 +57,10 @@ export default function StudentPortal({ session, onSignedOut }: { session: Stude
       api.watchLinks(classId, setLinks, onErr),
       api.watchTasks(classId, setTasks, onErr),
       api.watchMyStatus(classId, sid, setStatus, onErr),
-      api.watchStudent(classId, sid, setMe, onErr)
+      api.watchStudent(classId, sid, setMe, onErr),
+      api.watchSchool(classId, setSchool, () => undefined),
+      api.watchRoles(classId, setRoles, () => undefined),
+      api.watchCalendar(classId, setEvents, () => undefined)
     ];
     // 예약 공지·날짜 바뀜을 반영하려고 1분마다 다시 그림
     const t = setInterval(() => tick((n) => n + 1), 60000);
@@ -65,17 +75,21 @@ export default function StudentPortal({ session, onSignedOut }: { session: Stude
   const nowLink = activeNow(live);
   const t0 = today();
   const myTasks = useMemo(() => tasks.filter((t) => isTarget(t, sid)), [tasks, sid]);
-  const todo = myTasks.filter((t) => t.due >= t0 && status.tasks[t.id]?.state !== 'checked');
-  const overdue = myTasks.filter((t) => t.due < t0 && t.due >= addDays(t0, -30) && !['checked', 'done'].includes(status.tasks[t.id]?.state || ''));
+  const todo = myTasks.filter((t) => t.due >= t0);
+  const overdue = myTasks.filter((t) => t.due < t0 && t.due >= addDays(t0, -30) && progressOf(t, status).total > 0 && !progressOf(t, status).all);
   const visibleLinks = links.filter((l) => !l.hidden);
+  const myRoles = roles ? roles.items.filter((r) => assignments(roles)[r.id] === sid) : [];
+  const soon = events.filter((e) => (e.end || e.date) >= t0 && e.date <= addDays(t0, 7));
 
-  const toggleTask = async (t: Task) => {
+  const toggleItem = async (t: Task, itemId: string) => {
     if (!api) return;
-    const cur = status.tasks[t.id];
-    const done = cur?.state !== 'done';
+    const key = markKey(t.id, itemId);
+    const cur = status.tasks[key];
+    const done = !counted(cur?.state);
     try {
-      await api.markTask(classId, sid, t.id, cur, done);
-      toast(done ? '다 했어요! 선생님이 확인할 거예요.' : '되돌렸어요.');
+      await api.markTask(classId, sid, key, cur, done);
+      const after = progressOf(t, { ...status, tasks: { ...status.tasks, [key]: { state: done ? 'done' : 'todo', at: Date.now() } } });
+      toast(done ? (after.all ? `‘${t.title}’ 미션 완료! 🎉` : '완료!') : '되돌렸어요.');
     } catch (e) {
       toast(errorMessage(e));
     }
@@ -97,7 +111,8 @@ export default function StudentPortal({ session, onSignedOut }: { session: Stude
 
   const nav: { id: Tab; label: string; icon: React.ReactNode; dot?: boolean }[] = [
     { id: 'home', label: '홈', icon: <Home size={22} /> },
-    { id: 'links', label: '링크', icon: <Link2 size={22} /> },
+    { id: 'links', label: '바로가기', icon: <SquareArrowOutUpRight size={22} /> },
+    { id: 'calendar', label: '달력', icon: <CalendarDays size={22} /> },
     { id: 'notices', label: '공지', icon: <Megaphone size={22} />, dot: unread > 0 },
     { id: 'me', label: '나', icon: <UserRound size={22} /> }
   ];
@@ -152,7 +167,7 @@ export default function StudentPortal({ session, onSignedOut }: { session: Stude
                   <span className="w-2 h-2 rounded-full bg-white animate-pulse" aria-hidden /> 지금 열기 · 선생님이 보냈어요
                 </p>
                 <div className="flex items-center gap-4 mt-3">
-                  <LinkIcon url={nowLink.url} icon={nowLink.icon} size={60} className="bg-white/95 border-white/40" />
+                  <LinkIcon url={nowLink.url} icon={nowLink.icon} size={60} />
                   <p className="text-2xl sm:text-3xl font-bold tracking-tight flex-1 min-w-0 break-words">{nowLink.title}</p>
                   <span className="hidden sm:flex w-14 h-14 rounded-2xl bg-white/20 items-center justify-center group-hover:bg-white/30 transition shrink-0">
                     <ExternalLink size={26} />
@@ -174,38 +189,74 @@ export default function StudentPortal({ session, onSignedOut }: { session: Stude
               </section>
             )}
 
+            {myRoles.length > 0 && (
+              <Card className="p-4 sm:p-5 flex items-center gap-4 bg-gradient-to-br from-brand-soft to-surface">
+                <span className="text-4xl" aria-hidden>
+                  {myRoles[0].icon}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-ink-3">이번 주 내 역할</p>
+                  <p className="text-xl font-bold truncate">{myRoles.map((r) => r.name).join(' · ')}</p>
+                </div>
+              </Card>
+            )}
+
             <section>
-              <SectionTitle icon={<CheckCircle2 size={18} />} title="오늘 할 일" sub={todo.length ? `${todo.filter((t) => !status.tasks[t.id] || status.tasks[t.id].state !== 'done').length}개 남았어요` : undefined} />
+              <SectionTitle
+                icon={<ListChecks size={18} />}
+                title="오늘의 미션"
+                sub={(() => {
+                  const left = todo.reduce((n, t) => n + (progressOf(t, status).total - progressOf(t, status).done), 0);
+                  return todo.length ? (left ? `체크할 일 ${left}개 남았어요` : '모두 끝냈어요! 🎉') : undefined;
+                })()}
+              />
               {todo.length === 0 && overdue.length === 0 ? (
                 <Card>
-                  <Empty icon={<Check size={22} />} title="할 일을 모두 끝냈어요!">
-                    새 과제가 생기면 여기에 보여요.
+                  <Empty icon={<Check size={22} />} title="오늘은 미션이 없어요">
+                    선생님이 미션을 내면 여기에 보여요.
                   </Empty>
                 </Card>
               ) : (
-                <div className="space-y-2.5">
+                <div className="grid gap-3 lg:grid-cols-2">
                   {todo.map((t) => (
-                    <TaskRow key={t.id} task={t} status={status} onToggle={() => toggleTask(t)} />
+                    <MissionCard key={t.id} task={t} status={status} onToggle={(id) => toggleItem(t, id)} />
                   ))}
                 </div>
               )}
               {overdue.length > 0 && (
                 <div className="mt-5">
                   <h3 className="text-sm font-bold text-warn mb-2 flex items-center gap-1.5">
-                    <CalendarClock size={16} /> 마감 지난 과제
+                    <CalendarClock size={16} /> 지난 미션 (아직 남았어요)
                   </h3>
-                  <div className="space-y-2.5">
+                  <div className="grid gap-3 lg:grid-cols-2">
                     {overdue.map((t) => (
-                      <TaskRow key={t.id} task={t} status={status} onToggle={() => toggleTask(t)} late />
+                      <MissionCard key={t.id} task={t} status={status} onToggle={(id) => toggleItem(t, id)} late />
                     ))}
                   </div>
                 </div>
               )}
             </section>
 
+            <SchoolToday school={school} />
+
+            {soon.length > 0 && (
+              <section>
+                <SectionTitle icon={<CalendarDays size={18} />} title="다가오는 일정" action={<Button variant="ghost" size="sm" onClick={() => setTab('calendar')}>달력 보기</Button>} />
+                <Card className="divide-y divide-line">
+                  {soon.slice(0, 5).map((e) => (
+                    <div key={e.id} className="flex items-center gap-3 px-4 py-3">
+                      <span className={cx('text-xs font-bold rounded-md px-1.5 py-0.5 shrink-0', KIND_TONE[e.kind] || KIND_TONE.기타)}>{e.kind}</span>
+                      <span className="flex-1 min-w-0 font-semibold truncate">{e.title}</span>
+                      <span className="text-sm text-ink-3 shrink-0">{e.date === t0 ? '오늘' : formatDay(e.date)}</span>
+                    </div>
+                  ))}
+                </Card>
+              </section>
+            )}
+
             {visibleLinks.some((l) => l.pinned) && (
               <section>
-                <SectionTitle icon={<Link2 size={18} />} title="자주 쓰는 링크" action={<Button variant="ghost" size="sm" onClick={() => setTab('links')}>전체 보기</Button>} />
+                <SectionTitle icon={<SquareArrowOutUpRight size={18} />} title="자주 쓰는 바로가기" action={<Button variant="ghost" size="sm" onClick={() => setTab('links')}>전체 보기</Button>} />
                 <LinkGrid links={visibleLinks.filter((l) => l.pinned)} />
               </section>
             )}
@@ -213,6 +264,8 @@ export default function StudentPortal({ session, onSignedOut }: { session: Stude
         )}
 
         {tab === 'links' && <LinksTab links={visibleLinks} />}
+
+        {tab === 'calendar' && <CalendarTab events={events} school={school} />}
 
         {tab === 'notices' && (
           <section>
@@ -238,14 +291,14 @@ export default function StudentPortal({ session, onSignedOut }: { session: Stude
       </main>
 
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-surface/90 backdrop-blur-xl border-t border-line pb-[env(safe-area-inset-bottom)]" aria-label="메뉴">
-        <div className="grid grid-cols-4 max-w-lg mx-auto">
+        <div className="grid grid-cols-5 max-w-xl mx-auto">
           {nav.map((n) => (
             <button
               key={n.id}
               type="button"
               onClick={() => setTab(n.id)}
               aria-current={tab === n.id ? 'page' : undefined}
-              className={cx('relative h-16 flex flex-col items-center justify-center gap-0.5 text-[13px] font-semibold cursor-pointer transition', tab === n.id ? 'text-brand-strong' : 'text-ink-3')}
+              className={cx('relative h-16 flex flex-col items-center justify-center gap-0.5 text-[12px] min-[400px]:text-[13px] font-semibold cursor-pointer transition', tab === n.id ? 'text-brand-strong' : 'text-ink-3')}
             >
               {n.icon}
               {n.label}
@@ -269,49 +322,87 @@ export default function StudentPortal({ session, onSignedOut }: { session: Stude
   );
 }
 
-function TaskRow({ task, status, onToggle, late }: { task: Task; status: StudentStatus; onToggle: () => void; late?: boolean }) {
-  const mark = status.tasks[task.id];
-  const state = mark?.state || 'todo';
-  const done = state === 'done';
+function MissionCard({ task, status, onToggle, late }: { task: Task; status: StudentStatus; onToggle: (itemId: string) => void; late?: boolean }) {
+  const p = progressOf(task, status);
   return (
-    <Card className={cx('p-4 flex items-start gap-3.5 transition', done && 'bg-ok-soft/60 border-ok/20')}>
-      <div className="flex-1 min-w-0">
-        <div className="flex flex-wrap items-center gap-1.5 mb-1">
-          <Badge tone={late ? 'warn' : task.due === today() ? 'brand' : 'neutral'}>{dueLabel(task.due)}</Badge>
-          {state === 'redo' && <Badge tone="bad" icon={<RotateCcw size={12} />}>다시 해요</Badge>}
-          {done && <Badge tone="ok" icon={<Check size={12} />}>선생님 확인 전</Badge>}
-        </div>
-        <p className={cx('font-bold text-ink leading-snug', done && 'text-ink-2')}>{task.title}</p>
-        {task.desc && <p className="text-[15px] text-ink-3 mt-0.5 whitespace-pre-wrap">{task.desc}</p>}
-        {state === 'redo' && mark?.note && <p className="text-[15px] font-semibold text-bad mt-1.5">선생님: {mark.note}</p>}
-        {task.linkUrl && (
-          <a href={task.linkUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 mt-2 text-[15px] font-semibold text-brand-strong hover:underline">
-            <ExternalLink size={15} /> 과제 링크 열기
-          </a>
-        )}
+    <Card className={cx('p-4 sm:p-5 transition', p.all && 'bg-ok-soft/50 border-ok/25')}>
+      <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+        <Badge tone={late ? 'warn' : task.due === today() ? 'brand' : 'neutral'}>{dueLabel(task.due)}</Badge>
+        {p.all && <Badge tone="ok" icon={<Check size={12} />}>미션 완료</Badge>}
       </div>
-      {task.paper ? (
-        <span className="text-sm text-ink-3 font-medium shrink-0 self-center text-right">종이 과제<br />선생님이 확인</span>
-      ) : (
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-pressed={done}
-          className={cx(
-            'shrink-0 self-center h-14 min-w-24 px-4 rounded-2xl font-bold flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer border-2',
-            done ? 'bg-ok text-white border-ok' : 'bg-surface text-ink border-line-strong hover:border-brand hover:text-brand-strong'
-          )}
-        >
-          {done ? (
-            <>
-              <Check size={20} strokeWidth={3} /> 했어요
-            </>
+      <h3 className="text-lg font-bold leading-snug break-words">{task.title}</h3>
+      <ul className="mt-3 space-y-2">
+        {task.items.map((i) => {
+          const done = counted(status.tasks[markKey(task.id, i.id)]?.state);
+          return i.check ? (
+            <li key={i.id} className={cx(i.sub && 'pl-6')}>
+              <button
+                type="button"
+                onClick={() => onToggle(i.id)}
+                aria-pressed={done}
+                className={cx(
+                  'w-full min-h-14 rounded-2xl border-2 px-3.5 py-2.5 flex items-center gap-3 text-left cursor-pointer transition active:scale-[0.99]',
+                  done ? 'border-ok/40 bg-ok-soft' : 'border-line-strong bg-surface hover:border-brand'
+                )}
+              >
+                <span className={cx('w-7 h-7 rounded-lg border-2 flex items-center justify-center shrink-0 transition', done ? 'bg-ok border-ok text-white' : 'border-line-strong bg-surface')}>{done && <Check size={18} strokeWidth={3.5} />}</span>
+                <span className={cx('flex-1 min-w-0 font-semibold leading-snug break-words', done ? 'text-ink-2 line-through decoration-ok/60 decoration-2' : 'text-ink')}>{i.text}</span>
+              </button>
+            </li>
           ) : (
-            '다 했어요'
-          )}
-        </button>
+            <li key={i.id} className={cx('flex items-start gap-2.5 px-1 text-[16px] text-ink-2 leading-snug', i.sub && 'pl-7')}>
+              <span className="w-1.5 h-1.5 rounded-full bg-ink-3 mt-2.5 shrink-0" aria-hidden />
+              <span className="break-words min-w-0">{i.text}</span>
+            </li>
+          );
+        })}
+      </ul>
+      {p.total > 0 && (
+        <div className="mt-4">
+          <Progress value={p.done} max={p.total} tone={p.all ? 'ok' : 'brand'} label={`${task.title} 진행`} />
+          <p className="text-xs font-semibold text-ink-3 mt-1.5 tabular-nums">
+            {p.done} / {p.total} 완료
+          </p>
+        </div>
+      )}
+      {task.linkUrl && (
+        <a href={task.linkUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 mt-3 text-[15px] font-semibold text-brand-strong hover:underline">
+          <ExternalLink size={15} /> 바로가기 열기
+        </a>
       )}
     </Card>
+  );
+}
+
+function CalendarTab({ events, school }: { events: CalEvent[]; school: SchoolInfo | null }) {
+  const [month, setMonth] = useState(today().slice(0, 7));
+  const [selected, setSelected] = useState(today());
+  const { from, to } = monthRange(month);
+  const neis = useSchoolSchedule(school, from, to);
+  const byDay = itemsByDay(events, neis);
+  const items = byDay[selected] || [];
+  return (
+    <section className="space-y-4">
+      <SectionTitle icon={<CalendarDays size={18} />} title="학급 달력" />
+      <Card className="p-3 sm:p-5">
+        <MonthGrid month={month} setMonth={setMonth} byDay={byDay} selected={selected} onSelect={(k) => (setSelected(k), setMonth(k.slice(0, 7)))} />
+      </Card>
+      <Card className="p-4 sm:p-5">
+        <h3 className="font-bold mb-2">{formatDay(selected)}</h3>
+        {items.length === 0 ? (
+          <p className="text-ink-3">일정이 없어요.</p>
+        ) : (
+          <ul className="space-y-2">
+            {items.map((x) => (
+              <li key={x.id} className="flex items-center gap-2">
+                <span className={cx('text-xs font-bold rounded-md px-1.5 py-0.5 shrink-0', KIND_TONE[x.kind] || KIND_TONE.기타)}>{x.kind}</span>
+                <span className="font-semibold">{x.title}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+    </section>
   );
 }
 
@@ -336,11 +427,11 @@ function NoticeRow({ n, unread, onOpen }: { n: NoticeSummary; unread: boolean; o
 
 function LinkGrid({ links }: { links: LinkItem[] }) {
   return (
-    <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+    <div className="grid grid-cols-3 min-[480px]:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
       {links.map((l) => (
         <a key={l.id} href={l.url} target="_blank" rel="noopener noreferrer" className="group">
           <Card className="p-3 pt-4 h-full flex flex-col items-center text-center gap-2.5 group-hover:-translate-y-0.5 group-hover:shadow-pop transition">
-            <LinkIcon url={l.url} icon={l.icon} size={52} />
+            <LinkIcon url={l.url} icon={l.icon} category={linkCategory(l.category)} size={60} className="group-hover:scale-105 transition-transform" />
             <span className="text-[15px] font-semibold text-ink leading-tight line-clamp-2">{l.title}</span>
           </Card>
         </a>
@@ -350,12 +441,13 @@ function LinkGrid({ links }: { links: LinkItem[] }) {
 }
 
 function LinksTab({ links }: { links: LinkItem[] }) {
-  const cats = Array.from(new Set(links.map((l) => l.category)));
+  const have = new Set(links.map((l) => linkCategory(l.category)));
+  const cats = LINK_CATEGORIES.filter((c) => have.has(c));
   const [cat, setCat] = useState('전체');
-  const shown = cat === '전체' ? links : links.filter((l) => l.category === cat);
+  const shown = cat === '전체' ? links : links.filter((l) => linkCategory(l.category) === cat);
   return (
     <section>
-      <SectionTitle icon={<Link2 size={18} />} title="링크 모음" />
+      <SectionTitle icon={<SquareArrowOutUpRight size={18} />} title="바로가기 모음" />
       <div className="flex gap-2 overflow-x-auto scrollbar-none pb-3 -mx-4 px-4">
         {['전체', ...cats].map((c) => (
           <button
@@ -371,7 +463,7 @@ function LinksTab({ links }: { links: LinkItem[] }) {
       </div>
       {shown.length === 0 ? (
         <Card>
-          <Empty icon={<Link2 size={22} />} title="아직 링크가 없어요" />
+          <Empty icon={<SquareArrowOutUpRight size={22} />} title="아직 바로가기가 없어요" />
         </Card>
       ) : (
         <LinkGrid links={shown} />
@@ -382,33 +474,13 @@ function LinksTab({ links }: { links: LinkItem[] }) {
 
 function NoticeModal({ api, classId, summary, read, onRead, onClose }: { api: Api; classId: string; summary: NoticeSummary; read: boolean; onRead: () => void; onClose: () => void }) {
   const [n, setN] = useState<Notice | null>(null);
-  const [speaking, setSpeaking] = useState(false);
   const [error, setError] = useState('');
   useEffect(() => {
     api
       .getNotice(classId, summary.id)
       .then((d) => (d ? setN(d) : setError('공지를 열지 못했어요.')))
       .catch((e) => setError(errorMessage(e)));
-    return () => window.speechSynthesis?.cancel();
   }, [api, classId, summary.id]);
-
-  const canSpeak = typeof window !== 'undefined' && 'speechSynthesis' in window;
-  const speak = () => {
-    if (!n) return;
-    if (speaking) {
-      window.speechSynthesis.cancel();
-      setSpeaking(false);
-      return;
-    }
-    const u = new SpeechSynthesisUtterance(`${n.title}. ${n.body}`);
-    u.lang = 'ko-KR';
-    u.rate = 0.95;
-    u.onend = () => setSpeaking(false);
-    u.onerror = () => setSpeaking(false);
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(u);
-    setSpeaking(true);
-  };
 
   return (
     <Modal
@@ -421,11 +493,6 @@ function NoticeModal({ api, classId, summary, read, onRead, onClose }: { api: Ap
       }
       footer={
         <>
-          {canSpeak && (
-            <Button variant="secondary" size="lg" icon={speaking ? <VolumeX size={18} /> : <Volume2 size={18} />} onClick={speak} disabled={!n}>
-              {speaking ? '그만 읽기' : '읽어 주기'}
-            </Button>
-          )}
           <Button size="lg" variant={read ? 'soft' : 'primary'} icon={<Check size={18} />} onClick={read ? onClose : () => (onRead(), onClose())} disabled={!n}>
             {read ? '확인했어요 ✓' : '확인했어요'}
           </Button>

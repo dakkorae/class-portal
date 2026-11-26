@@ -8,7 +8,7 @@ import { InviteCode } from '../lib/types';
 import { Badge, Button, Card, CopyButton, ErrorNote, Field, Input, Modal, SectionTitle, Spinner, Switch, cx, toast } from '../ui/kit';
 
 // 앱 관리자 화면 (주소 끝 #admin): 학급 개설 코드 발급·관리, 교사 비밀번호 재설정 코드 발급
-// 관리자는 학급 이름·학급 코드만 볼 수 있고 학생 명단·과제 기록·공지 내용은 읽지 못함 (보안 규칙이 막음)
+// 관리자는 학급 이름·학급 코드만 볼 수 있고 학생 명단·미션 기록·공지 내용은 읽지 못함 (보안 규칙이 막음)
 export default function AdminApp() {
   const [api, setApi] = useState<Api | null>(null);
   const [admin, setAdmin] = useState<boolean | null>(null);
@@ -300,7 +300,7 @@ function CodeRow({ api, code: c, onChanged }: { api: Api; code: InviteCode; onCh
           }
         >
           <p className="text-ink-2">
-            <b className="font-mono">{c.code}</b> 코드로 만든 <b>학급 {c.usedCount}개와 그 안의 모든 자료(학생 명단·과제·공지)</b>가 함께 지워지고 되돌릴 수 없어요.
+            <b className="font-mono">{c.code}</b> 코드로 만든 <b>학급 {c.usedCount}개와 그 안의 모든 자료(학생 명단·미션·공지)</b>가 함께 지워지고 되돌릴 수 없어요.
           </p>
         </Modal>
       )}

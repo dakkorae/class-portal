@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { Api, emptyLive } from '../lib/api';
 import { errorMessage } from '../lib/cloud';
-import { ClassInfo, LinkItem, LiveDoc, Notice, Student, StudentStatus, Task, TaskTemplate } from '../lib/types';
+import { CalEvent, ClassInfo, LinkItem, LiveDoc, Notice, RolesDoc, SchoolInfo, Student, StudentStatus, Task, TaskTemplate } from '../lib/types';
 
 export interface ClassData {
   api: Api;
@@ -15,6 +15,9 @@ export interface ClassData {
   claimed: Record<string, boolean>;
   notices: Notice[];
   templates: TaskTemplate[];
+  school: SchoolInfo | null;
+  roles: RolesDoc | null;
+  events: CalEvent[];
   error: string;
   ready: boolean;
   privacy: boolean;
@@ -33,6 +36,9 @@ export function useClassData(api: Api, classId: string, privacy: boolean): Class
   const [claimed, setClaimed] = useState<Record<string, boolean>>({});
   const [notices, setNotices] = useState<Notice[]>([]);
   const [templates, setTemplates] = useState<TaskTemplate[]>([]);
+  const [school, setSchool] = useState<SchoolInfo | null>(null);
+  const [roles, setRoles] = useState<RolesDoc | null>(null);
+  const [events, setEvents] = useState<CalEvent[]>([]);
   const [error, setError] = useState('');
   const [loaded, setLoaded] = useState<Record<string, boolean>>({});
 
@@ -48,7 +54,10 @@ export function useClassData(api: Api, classId: string, privacy: boolean): Class
       api.watchStudents(classId, (s) => (setStudents(s), mark('students')), onErr),
       api.watchRoster(classId, setClaimed, onErr),
       api.watchNotices(classId, setNotices, onErr),
-      api.watchTemplates(classId, setTemplates, onErr)
+      api.watchTemplates(classId, setTemplates, onErr),
+      api.watchSchool(classId, setSchool, onErr),
+      api.watchRoles(classId, setRoles, onErr),
+      api.watchCalendar(classId, setEvents, onErr)
     ];
     return () => stops.forEach((s) => s());
   }, [api, classId]);
@@ -76,7 +85,7 @@ export function useClassData(api: Api, classId: string, privacy: boolean): Class
     return s.name;
   };
 
-  return { api, classId, info, live, links, tasks, statuses, students, claimed, notices, templates, error, ready, privacy, nameOf };
+  return { api, classId, info, live, links, tasks, statuses, students, claimed, notices, templates, school, roles, events, error, ready, privacy, nameOf };
 }
 
 export const DataContext = createContext<ClassData | null>(null);

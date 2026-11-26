@@ -6,14 +6,16 @@
 //   teachers/{기기} members/{기기} screens/{기기}   교사·학생·TV 로 등록된 기기
 //   students/{sid} pins/{sid} status/{sid}   학생 명단 · PIN 해시 · 과제 상태와 공지 읽음
 //   public/roster { name, maxStudents, claimed:{sid:true} }   학급 이름·정원·번호별 등록 여부 (로그인 화면용, 학생 이름 없음)
-//   public/live   '지금 열기' · 공지 목록 요약 · 오늘 과제 요약과 완료 인원수 (학생·TV가 실시간으로 봄)
-//   public/links { items:{id:링크} }   링크 모음
-//   tasks/{id} notices/{id}   과제 · 공지(그림 포함)
-//   private/templates   과제 템플릿 (교사만)
+//   public/live   '지금 열기' · 공지 목록 요약 · 미션 요약 · 완료 체크 칸 목록(checks)과 칸별 완료 인원수 (학생·TV가 실시간으로 봄)
+//   public/links { items:{id:바로가기} }   바로가기 모음
+//   public/school · public/roles · public/calendar   학교(나이스) 설정 · 1인1역 · 학급 달력 (교사가 씀, 학생은 읽음)
+//   tasks/{id} notices/{id}   미션 · 공지(그림 포함)
+//   private/templates   미션 템플릿 (교사만)
 // 최상위: config/admin(관리자 키 해시, 콘솔에서 만듦) · admins/{기기} · inviteCodes/{코드}
 import { Data, DEL, NOW, PermissionError, Store, WriteOp, inc, ts } from './store';
 import { adminKeyHash, normalizeCode, pinHash, randomCode, randomId, randomToken, resetCodeHash, teacherKeyHash } from './hash';
 import {
+  CalEvent,
   ClassInfo,
   InviteCode,
   LinkItem,
@@ -23,18 +25,21 @@ import {
   Notice,
   NoticeSummary,
   NowLink,
+  RolesDoc,
+  SchoolInfo,
   Student,
   StudentStatus,
   Task,
   TaskMark,
-  TaskState,
-  TaskTemplate
+  TaskTemplate,
+  checkItems,
+  markKey
 } from './types';
 import { today } from './dates';
 
 const C = (cid: string, rest = '') => `classes/${cid}${rest ? '/' + rest : ''}`;
 
-export const counted = (s?: TaskState) => s === 'done' || s === 'checked';
+export const counted = (s?: string) => s === 'done' || s === 'checked';
 
 const toStudent = (sid: string, d: Data): Student => ({
   sid,
@@ -44,13 +49,37 @@ const toStudent = (sid: string, d: Data): Student => ({
   ...(d.nameAt ? { nameAt: Number(d.nameAt) } : {})
 });
 
-export const emptyLive = (): LiveDoc => ({ now: null, notices: {}, tasks: {}, done: {} });
+export const emptyLive = (): LiveDoc => ({ now: null, notices: {}, tasks: {}, checks: {}, done: {} });
 const toLive = (d: Data | null): LiveDoc => ({
   now: (d?.now as NowLink) || null,
   notices: (d?.notices as LiveDoc['notices']) || {},
   tasks: (d?.tasks as LiveDoc['tasks']) || {},
+  checks: (d?.checks as LiveDoc['checks']) || {},
   done: (d?.done as LiveDoc['done']) || {}
 });
+
+// 예전 ‘과제’(설명·종이 과제)로 만든 자료는 설명 줄 + ‘다 했어요’ 체크 한 줄로 바꿔 보여 줌
+const legacyItems = (d: Data): Task['items'] => [
+  ...String(d.desc || '')
+    .split(/\r?\n/)
+    .map((t) => t.trim())
+    .filter(Boolean)
+    .map((text, i) => ({ id: 'd' + i, text, check: false, sub: false })),
+  { id: 'main', text: '다 했어요', check: !d.paper, sub: false }
+];
+
+const toTask = (id: string, d: Data): Task => ({
+  id,
+  title: String(d.title || ''),
+  items: Array.isArray(d.items) ? (d.items as Task['items']) : legacyItems(d),
+  due: String(d.due || ''),
+  targets: (d.targets as string[] | null) ?? null,
+  linkUrl: String(d.linkUrl || ''),
+  createdAt: Number(d.createdAt) || 0
+});
+
+// 미션의 실시간 요약 (학생·TV·교실 화면이 씀)
+const liveTaskOf = (t: Pick<Task, 'title' | 'due' | 'items' | 'targets'>, total: number) => ({ title: t.title, due: t.due, total, items: t.items, targets: t.targets });
 
 export function createApi(store: Store) {
   const demo = store.kind === 'demo';
@@ -86,6 +115,9 @@ export function createApi(store: Store) {
       C(cid, 'public/roster'),
       C(cid, 'public/live'),
       C(cid, 'public/links'),
+      C(cid, 'public/school'),
+      C(cid, 'public/roles'),
+      C(cid, 'public/calendar'),
       C(cid, 'private/templates'),
       C(cid, 'secrets/reset'),
       C(cid, 'secrets/tv'),
@@ -167,7 +199,7 @@ export function createApi(store: Store) {
         { type: 'set', path: C(cid, 'teachers/' + id), data: { keyHash } },
         { type: 'set', path: C(cid, 'secrets/tv'), data: { token: randomToken() } },
         { type: 'set', path: C(cid, 'public/roster'), data: { name: info.name, maxStudents: max, claimed: {} } },
-        { type: 'set', path: C(cid, 'public/live'), data: { now: null, notices: {}, tasks: {}, done: {} } },
+        { type: 'set', path: C(cid, 'public/live'), data: { now: null, notices: {}, tasks: {}, checks: {}, done: {} } },
         { type: 'set', path: C(cid, 'public/links'), data: { items: {} } },
         { type: 'update', path: `inviteCodes/${code}`, data: { usedCount: Number(inv.usedCount) + 1 } }
       ]);
@@ -330,34 +362,36 @@ export function createApi(store: Store) {
       await store.write([{ type: 'update', path: C(cid, 'public/live'), data: { now } }]);
     },
 
-    // ---- 과제 ----
+    // ---- 미션 ----
     watchTasks(cid: string, cb: (list: Task[]) => void, onError?: (e: unknown) => void) {
       return store.watchList(
         C(cid, 'tasks'),
-        (items) =>
-          cb(
-            items
-              .map((i) => ({ ...(i.data as Omit<Task, 'id'>), id: i.id }) as Task)
-              .sort((a, b) => (a.due === b.due ? a.createdAt - b.createdAt : a.due.localeCompare(b.due)))
-          ),
+        (items) => cb(items.map((i) => toTask(i.id, i.data)).sort((a, b) => (a.due === b.due ? a.createdAt - b.createdAt : a.due.localeCompare(b.due)))),
         onError
       );
     },
-    async saveTask(cid: string, task: Omit<Task, 'id' | 'createdAt'> & { id?: string; createdAt?: number }, total: number) {
+    // 미션 저장 + 실시간 요약과 완료 체크 칸 목록을 함께 바꿈 (prev: 고치기 전 미션, 없어진 칸을 지우려고)
+    async saveTask(cid: string, task: Omit<Task, 'id' | 'createdAt'> & { id?: string; createdAt?: number }, total: number, prev?: Task) {
       const id = task.id || randomId();
-      const data = { ...task, id, createdAt: task.createdAt || Date.now() };
+      const data = { title: task.title, items: task.items, due: task.due, targets: task.targets, linkUrl: task.linkUrl, id, createdAt: task.createdAt || Date.now() };
+      const live: Data = { ['tasks.' + id]: liveTaskOf(task, total) };
+      const keep = new Set(checkItems(task).map((i) => i.id));
+      for (const i of checkItems(task)) live['checks.' + markKey(id, i.id)] = true;
+      for (const i of prev ? checkItems(prev) : []) if (!keep.has(i.id)) (live['checks.' + markKey(id, i.id)] = DEL), (live['done.' + markKey(id, i.id)] = DEL);
       await store.write([
         { type: 'set', path: C(cid, 'tasks/' + id), data },
         { type: 'update', path: C(cid), data: { ['refs.' + id]: true } },
-        { type: 'update', path: C(cid, 'public/live'), data: { ['tasks.' + id]: { title: task.title, due: task.due, total, paper: task.paper } } }
+        { type: 'update', path: C(cid, 'public/live'), data: live }
       ]);
       return id;
     },
-    async deleteTask(cid: string, id: string) {
+    async deleteTask(cid: string, task: Task) {
+      const live: Data = { ['tasks.' + task.id]: DEL };
+      for (const i of checkItems(task)) (live['checks.' + markKey(task.id, i.id)] = DEL), (live['done.' + markKey(task.id, i.id)] = DEL);
       await store.write([
-        { type: 'delete', path: C(cid, 'tasks/' + id) },
-        { type: 'update', path: C(cid), data: { ['refs.' + id]: DEL } },
-        { type: 'update', path: C(cid, 'public/live'), data: { ['tasks.' + id]: DEL, ['done.' + id]: DEL } }
+        { type: 'delete', path: C(cid, 'tasks/' + task.id) },
+        { type: 'update', path: C(cid), data: { ['refs.' + task.id]: DEL } },
+        { type: 'update', path: C(cid, 'public/live'), data: live }
       ]);
     },
     watchStatuses(cid: string, cb: (map: Record<string, StudentStatus>) => void, onError?: (e: unknown) => void) {
@@ -371,18 +405,12 @@ export function createApi(store: Store) {
         onError
       );
     },
-    // 교사가 여러 칸의 상태를 한 번에 바꿈 (확인 / 다시 해요 / 미완료)
-    async setMarks(cid: string, changes: { sid: string; taskId: string; state: TaskState; note?: string }[]) {
-      const ops: WriteOp[] = changes.map((c) => ({
-        type: 'set',
-        path: C(cid, 'status/' + c.sid),
-        data: { tasks: { [c.taskId]: c.state === 'todo' ? DEL : { state: c.state, note: c.note ? c.note : DEL, at: NOW } } },
-        merge: true
-      }));
-      if (ops.length) await store.write(ops);
-    },
     watchTemplates(cid: string, cb: (list: TaskTemplate[]) => void, onError?: (e: unknown) => void) {
-      return store.watch(C(cid, 'private/templates'), (d) => cb(Object.values((d?.items as Record<string, TaskTemplate>) || {})), onError);
+      return store.watch(
+        C(cid, 'private/templates'),
+        (d) => cb(Object.values((d?.items as Record<string, TaskTemplate>) || {}).map((t) => ({ ...t, items: Array.isArray(t.items) ? t.items : [] }))),
+        onError
+      );
     },
     async saveTemplate(cid: string, t: Omit<TaskTemplate, 'id'>) {
       const id = randomId();
@@ -391,20 +419,59 @@ export function createApi(store: Store) {
     async deleteTemplate(cid: string, id: string) {
       await store.write([{ type: 'set', path: C(cid, 'private/templates'), data: { items: { [id]: DEL } }, merge: true }]);
     },
-    // 교사 화면이 열려 있을 때 실시간 문서의 과제 요약·완료 인원수를 실제 기록으로 바로잡음
+    // 교사 화면이 열려 있을 때 실시간 문서의 미션 요약·완료 칸·완료 인원수를 실제 기록으로 바로잡음
     async syncLive(cid: string, live: LiveDoc, tasks: Task[], students: Student[], statuses: Record<string, StudentStatus>) {
       const wantTasks: LiveDoc['tasks'] = {};
+      const wantChecks: LiveDoc['checks'] = {};
       const wantDone: LiveDoc['done'] = {};
       for (const t of tasks) {
         const targets = t.targets ?? students.map((s) => s.sid);
-        wantTasks[t.id] = { title: t.title, due: t.due, total: targets.length, paper: !!t.paper };
-        wantDone[t.id] = targets.filter((sid) => counted(statuses[sid]?.tasks?.[t.id]?.state)).length;
+        wantTasks[t.id] = liveTaskOf(t, targets.length);
+        for (const i of checkItems(t)) {
+          const k = markKey(t.id, i.id);
+          wantChecks[k] = true;
+          wantDone[k] = targets.filter((sid) => counted(statuses[sid]?.tasks?.[k]?.state)).length;
+        }
       }
-      const same = (a: unknown, b: unknown) => JSON.stringify(a, Object.keys((a as Data) || {}).sort()) === JSON.stringify(b, Object.keys((b as Data) || {}).sort());
-      const tasksSame = Object.keys(wantTasks).length === Object.keys(live.tasks).length && Object.entries(wantTasks).every(([k, v]) => same(v, live.tasks[k]));
+      const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+      const tasksSame = Object.keys(wantTasks).length === Object.keys(live.tasks).length && Object.entries(wantTasks).every(([k, v]) => same(v, liveTaskOf(live.tasks[k] || { title: '', due: '', items: [], targets: null }, live.tasks[k]?.total ?? -1)));
+      const checksSame = Object.keys(wantChecks).length === Object.keys(live.checks).length && Object.keys(wantChecks).every((k) => live.checks[k]);
       const doneSame = Object.keys(wantDone).length === Object.keys(live.done).length && Object.entries(wantDone).every(([k, v]) => live.done[k] === v);
-      if (tasksSame && doneSame) return;
-      await store.write([{ type: 'update', path: C(cid, 'public/live'), data: { tasks: wantTasks, done: wantDone } }]);
+      if (tasksSame && checksSame && doneSame) return;
+      await store.write([{ type: 'update', path: C(cid, 'public/live'), data: { tasks: wantTasks, checks: wantChecks, done: wantDone } }]);
+    },
+
+    // ---- 2차: 학교(나이스) · 1인1역 · 학급 달력 ----
+    watchSchool(cid: string, cb: (s: SchoolInfo | null) => void, onError?: (e: unknown) => void) {
+      return store.watch(C(cid, 'public/school'), (d) => cb(d && d.code ? (d as unknown as SchoolInfo) : null), onError);
+    },
+    async saveSchool(cid: string, school: SchoolInfo | null) {
+      await store.write([school ? { type: 'set', path: C(cid, 'public/school'), data: { ...school } } : { type: 'delete', path: C(cid, 'public/school') }]);
+    },
+    watchRoles(cid: string, cb: (r: RolesDoc | null) => void, onError?: (e: unknown) => void) {
+      return store.watch(
+        C(cid, 'public/roles'),
+        (d) => cb(d ? { items: (d.items as RolesDoc['items']) || [], order: (d.order as string[]) || [], start: String(d.start || ''), shift: Number(d.shift) || 0 } : null),
+        onError
+      );
+    },
+    async saveRoles(cid: string, roles: RolesDoc) {
+      await store.write([{ type: 'set', path: C(cid, 'public/roles'), data: { ...roles } }]);
+    },
+    watchCalendar(cid: string, cb: (list: CalEvent[]) => void, onError?: (e: unknown) => void) {
+      return store.watch(
+        C(cid, 'public/calendar'),
+        (d) => cb(Object.values((d?.items as Record<string, CalEvent>) || {}).sort((a, b) => a.date.localeCompare(b.date))),
+        onError
+      );
+    },
+    async saveEvent(cid: string, e: Omit<CalEvent, 'id'> & { id?: string }) {
+      const id = e.id || randomId();
+      await store.write([{ type: 'set', path: C(cid, 'public/calendar'), data: { items: { [id]: { ...e, id } } }, merge: true }]);
+      return id;
+    },
+    async deleteEvent(cid: string, id: string) {
+      await store.write([{ type: 'set', path: C(cid, 'public/calendar'), data: { items: { [id]: DEL } }, merge: true }]);
     },
 
     // ---- 공지 ----
@@ -507,14 +574,13 @@ export function createApi(store: Store) {
     watchMyStatus(cid: string, sid: string, cb: (s: StudentStatus) => void, onError?: (e: unknown) => void) {
       return store.watch(C(cid, 'status/' + sid), (d) => cb({ tasks: (d?.tasks as StudentStatus['tasks']) || {}, reads: (d?.reads as StudentStatus['reads']) || {} }), onError);
     },
-    // 학생의 '다 했어요' 누르기·되돌리기 + 실시간 완료 인원수 함께 바꾸기
-    async markTask(cid: string, sid: string, taskId: string, prev: TaskMark | undefined, done: boolean) {
-      if (prev?.state === 'checked') return;
+    // 학생이 완료 체크 칸 하나를 누르거나 되돌림 + 실시간 완료 인원수 함께 바꾸기 (key = 미션ID_줄ID)
+    async markTask(cid: string, sid: string, key: string, prev: TaskMark | undefined, done: boolean) {
       const before = counted(prev?.state);
       const ops: WriteOp[] = [
-        { type: 'set', path: C(cid, 'status/' + sid), data: { tasks: { [taskId]: { state: done ? 'done' : 'todo', at: NOW } }, last: taskId }, merge: true }
+        { type: 'set', path: C(cid, 'status/' + sid), data: { tasks: { [key]: { state: done ? 'done' : 'todo', at: NOW } }, last: key }, merge: true }
       ];
-      if (before !== done) ops.push({ type: 'update', path: C(cid, 'public/live'), data: { ['done.' + taskId]: inc(done ? 1 : -1), doneLast: taskId } });
+      if (before !== done) ops.push({ type: 'update', path: C(cid, 'public/live'), data: { ['done.' + key]: inc(done ? 1 : -1), doneLast: key } });
       await store.write(ops);
     },
     async markRead(cid: string, sid: string, noticeId: string) {

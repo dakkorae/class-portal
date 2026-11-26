@@ -3,11 +3,11 @@
 새 대화에서 이 파일만 읽으면 이어서 작업할 수 있도록 정리했습니다. 사용자(서성민 선생님)는 비개발자 → **설명은 쉬운 한국어로, 용어는 풀어서**.
 
 ## 한눈에
-- 학급 포털 웹앱. 기획서: 우리 반 학급 포털 PRD (claude.ai 문서). MVP = 로그인(관리자·교사·학생) + 링크·지금 열기 + 과제 체크 + 공지 + TV 화면.
+- 학급 포털 웹앱. 기획서: 우리 반 학급 포털 PRD (claude.ai 문서). 화면에 쓰는 말: **바로가기**(예전 ‘링크’), **미션**(예전 ‘과제’). 기능 = 로그인(관리자·교사·학생) + 바로가기·지금 열기 + 미션(완료 체크 줄 따로) + 공지 + TV 화면 + 교실 화면(판서·타이머·번호 뽑기) + 나이스 급식·시간표·학사일정 + 1인1역 + 학급 달력.
 - React 19 + TypeScript + Vite 6 + Tailwind 4, PWA(`public/sw.js`, `manifest.webmanifest`). 서버는 Firebase Spark(Firestore 서울 + 익명 로그인). Functions·Storage 쓰지 않음.
 - Firebase 프로젝트 `uriban-portal`(계정 dakkorae), 배포 주소 https://uriban-portal.web.app 와 Vercel https://potal-sand.vercel.app (GitHub `main` 에 올리면 Vercel이 자동 배포). 저장소 `dakkorae/class-portal` 의 `main` (예전 이름 `potal` 에서 바뀜. 작업이 끝나면 `main` 에 바로 커밋·푸시).
 - 배포: Vercel은 푸시만 하면 자동. Firebase Hosting·규칙은 `npm run build && npx firebase-tools deploy --only firestore:rules,auth,hosting` (규칙을 바꾸면 이 명령으로 같이 올라감).
-- 주소로 화면 나누기(`src/App.tsx`): `/` 학생, `#teacher`, `#admin`, `#tv/학급코드/비밀값`. 교사·관리자·TV 화면은 `lazy()` 로 따로 내려받음.
+- 주소로 화면 나누기(`src/App.tsx`): `/` 학생, `#teacher`, `#admin`, `#tv/학급코드/비밀값`(늘 켜 두는 TV), `#board/학급코드/미션ID`(교실 화면: 교사 기기에서 새 창, `openBoard`). 교사·관리자·TV·교실 화면은 `lazy()` 로 따로 내려받음.
 - IB 대시보드(dakkorae/IBL)의 로그인·개설 코드·재설정 코드·규칙 시험 방식을 가져와 고쳐 씀.
 
 ## 구조
@@ -17,19 +17,26 @@
 | `src/lib/firestoreStore.ts` · `localStore.ts` | 실제 서버 / 체험용(localStorage, BroadcastChannel로 다른 탭에 반영). **둘 다 같은 쓰기 의미**(set·set merge·점 경로 update) |
 | `src/lib/api.ts` | 모든 동작 (한 곳). 체험용은 규칙이 없으므로 비밀번호 확인을 `demoMatch` 로 대신 |
 | `src/lib/cloud.ts` | 서버 고르기(`cloudMode`), 기기 저장 키(`cp_` 로 시작), 초대·TV 주소 |
-| `src/lib/visible.ts` | 보이는 공지(예약·내림), 오늘의 지금 열기, 과제 대상 |
+| `src/lib/visible.ts` | 보이는 공지(예약·내림), 오늘의 지금 열기, 미션 대상 |
+| `src/lib/mission.ts` | 미션 줄 붙여넣기 해석(`(체크)`·들여쓰기), 학생별 진행(`progressOf`) |
+| `src/lib/neis.ts` · `src/ui/school.tsx` | 나이스 호출(학교 찾기·급식·시간표·학사일정, 브라우저에서 바로, 6시간 기억) · 오늘 시간표/급식 카드 |
+| `src/lib/roles.ts` | 1인1역 주간 순환(`assignments`: 역할 i → order[(i + 주차 + shift) % 인원]) |
+| `src/ui/tiles.ts` · `index.css .tile3d` | 바로가기 3D 타일 아이콘(분류별 그림 16개씩, 분류 색) |
+| `src/ui/calendar.tsx` | 달력 칸(MonthGrid), 일정 펼치기 |
+| `src/board/BoardApp.tsx` | 교실 화면: 미션 크게(완료 인원) · 판서(펜·지우개·되돌리기) · 타이머 · 번호 뽑기 · 1인1역, 칠판/검정/흰색 테마 |
 | `src/student/*` | JoinFlow(코드→번호→PIN→이름), StudentPortal(홈·링크·공지·나), PinPad |
-| `src/teacher/*` | TeacherApp(열기·개설·재설정·기록 안내), Workspace(메뉴·가림 모드), data.ts(실시간 구독 + `syncLive`), Dashboard, LinksPanel, TasksPanel(현황판), NoticesPanel, ClassPanel(명단·TV 주소·CSV·삭제) |
+| `src/teacher/*` | TeacherApp(열기·개설·재설정·기록 안내), Workspace(메뉴·가림 모드), data.ts(실시간 구독 + `syncLive`), Dashboard, LinksPanel(바로가기), MissionsPanel(미션 카드·완료 현황표(보기 전용)·편집기·템플릿), NoticesPanel, RolesPanel, CalendarPanel, ClassPanel(명단 일괄 저장·학교 설정·TV 주소·CSV·삭제) |
 | `src/admin/AdminApp.tsx` · `src/tv/TvApp.tsx` | 관리자 / TV |
 | `src/ui/kit.tsx` | 버튼·카드·입력·모달·토스트 등. 색은 이름 붙은 토큰(`bg-surface`, `text-ink-3`, `bg-brand` …)만 씀 → 어두운 화면 자동 |
-| `firestore.rules` · `scripts/rules-test.mjs` | 보안 규칙 · 자동 시험(117가지) |
+| `firestore.rules` · `scripts/rules-test.mjs` | 보안 규칙 · 자동 시험(134가지) |
 
 ## 서버 자료 (`classes/{학급코드}/…`)
-학급 문서 `{name, inviteCode, createdAt, maxStudents, refs}`(교사·관리자만 읽음) · `public/roster {name, maxStudents, claimed}`(누구나: 입장 화면) · `public/live {now, notices(요약), tasks(요약), done(완료 인원)}`(학생·TV·교사) · `public/links {items}` · `tasks/{id}` · `notices/{id}`(그림 data URL 포함, 학생은 게시 시각 지난 것만) · `status/{sid} {tasks, reads, last}` · `students/{sid}`(본인·교사) · `pins/{sid}`·`secrets/teacher·reset`(읽기 불가) · `secrets/tv`(교사) · `teachers|members|screens/{기기}` · `private/templates`. 최상위 `config/admin`, `admins`, `inviteCodes`.
+학급 문서 `{name, inviteCode, createdAt, maxStudents, refs}`(교사·관리자만 읽음) · `public/roster {name, maxStudents, claimed}`(누구나: 입장 화면) · `public/live {now, notices(요약), tasks(미션 요약: title·due·total·items·targets), checks{완료칸:true}, done{완료칸:인원}}`(학생·TV·교사) · `public/links {items}` · `public/school`(나이스 학교·학년·반·인증키) · `public/roles {items, order, start, shift}` · `public/calendar {items}` · `tasks/{id} {title, items:[{id,text,check,sub}], due, targets, linkUrl}` · `notices/{id}`(그림 data URL 포함, 학생은 게시 시각 지난 것만) · `status/{sid} {tasks:{미션ID_줄ID:{state,at}}, reads, last}` · `students/{sid}`(본인·교사) · `pins/{sid}`·`secrets/teacher·reset`(읽기 불가) · `secrets/tv`(교사) · `teachers|members|screens/{기기}` · `private/templates`. 최상위 `config/admin`, `admins`, `inviteCodes`.
 
 ## 원칙
 - 학생 이름은 본인·교사만. TV·로그인 번호 버튼에는 이름 없음. 교사 화면 가림 모드(`.privacy .pii` 흐림).
-- 학생은 자기 기록만 쓰고 ‘다 했어요’/되돌리기만. ‘확인’·‘다시 해요’는 교사만. 학생이 완료 인원수를 ±1 하면 교사 화면이 열려 있을 때 `syncLive` 가 실제 기록으로 바로잡음.
+- 완료 칸 이름은 `미션ID_줄ID`(`markKey`). 학생은 자기 기록의 칸 하나만 done/todo 로 바꾸고, `public/live.done` 을 그 칸만 ±1 (`checks` 에 있는 칸만). 선생님은 현황을 **보기만**(확인·다시 해요 없음). 교사 화면이 열려 있으면 `syncLive` 가 요약·칸 목록·인원수를 실제 기록으로 바로잡음.
+- 예전 ‘과제’ 자료(설명·종이 과제, items 없음)는 `legacyItems` 로 설명 줄 + ‘다 했어요’ 체크 한 줄로 보여 줌(사용자 학급 MYEQZ6 에 예전 과제 1개 있음).
 - 묶음 쓰기로 “자기 것 하나만 바꿨는지” 규칙이 검사(`last`, `doneLast` 표시 칸). 서버 동작을 바꾸면 **규칙과 시험 스크립트도 같이** 고침.
 - 학급 삭제는 10개씩 묶어 지움(규칙 호출 한도).
 - 학급 문서는 교사·관리자만 읽음 → 학급이 있는지 확인·이름 읽기는 `public/roster` 로. (규칙 시험만으로는 못 잡는 앱 쪽 실수가 있으므로 실제 서버 시험도 함께: 시험용 개설 코드를 만들어 눌러 보고 학급 삭제로 정리)
@@ -61,11 +68,14 @@ npx firebase emulators:exec --only firestore --project demo-portal "node rules-t
 
 8. 사용자가 Vercel 계정에 GitHub 저장소를 직접 연결 → https://potal-sand.vercel.app (`vercel.json` 그대로, 환경 변수 없음). 두 주소 모두 같은 Firebase 자료를 쓰지만 기기 로그인 정보는 주소마다 따로라 학생 안내 주소는 하나로.
 
+9. (11/26 오후) 사용자 요청 10가지 반영: ‘링크’→‘바로가기’, ‘과제’→‘미션’, 명단 일괄 저장, 바로가기 3D 타일 아이콘·분류(전체/국어/수학/사회/과학/도덕/미술/실과/기타, 예전 분류는 기타로), 공지 읽어 주기 삭제, 교사 확인 기능 삭제(현황만), 미션에 완료 체크 줄 따로 고르기(붙여넣기 `(체크)`·들여쓰기 지원), ‘TV 화면 열기’ = 새 창 교실 화면(미션 크게·판서). 2차까지: 나이스 급식·시간표·학사일정(학급 관리 → 우리 학교, 인증키 없으면 시간표 5교시까지), 타이머·번호 뽑기(교실 화면), 1인1역 주간 순환, 학급 달력. 규칙 134가지 통과·배포, 휴대폰 360/414·태블릿 768/1024·크롬북 1366·PC 1920에서 가로 넘침 없음 확인, 실제 서버 시험 후 시험 학급·시험 개설 코드(TEST-E2E2) 지움.
+
 ## 작업 환경 메모 (클라우드 세션)
-- `web.app`·`vercel.app` 주소와 글꼴 CDN은 이 작업 환경에서 열리지 않음 → 실제 서버 시험은 `npm run build` 후 `dist` 를 `python3 -m http.server` 로 띄워 Playwright로(서버는 진짜 Firebase에 연결됨).
+- 이 저장소 전용 클라우드 환경 `class-portal`(Firebase 주소들 + `open.neis.go.kr` 허용). `web.app`·`vercel.app` 주소와 글꼴 CDN은 열리지 않음 → 실제 서버 시험은 `npm run build` 후 `dist` 를 `python3 -m http.server` 로 띄워 Playwright로(서버는 진짜 Firebase에 연결됨). Playwright 는 `chromium.launch({ proxy: { server: process.env.HTTPS_PROXY, bypass: 'localhost,127.0.0.1' } })` + `ignoreHTTPSErrors` 로 띄워야 나이스·Firebase 에 닿음.
+- 시험용 개설 코드는 소유자 토큰 REST 로 `inviteCodes/TEST-…` 를 만들고, 끝나면 지움. **사용자의 학급(MYEQZ6)·개설 코드(N35Q-RJ8W)는 건드리지 않음.**
 - Firebase CLI 로그인은 세션마다 다시 필요할 수 있음: `firebase login --no-localhost` 링크를 사용자에게 주고(세션 ID 확인 안내) 받은 코드로 `firebase login <코드>`.
 - 소유자 권한으로 Firestore 문서를 직접 고칠 때는 CLI 로그인 토큰으로 REST 호출(관리자 키 등록 등). 시험용 자료는 반드시 지움.
 - 사용자는 한국어 설명을 원함(계속 한국어로).
 
-## 다음 (2차, PRD 4-5)
-나이스 급식·시간표(브라우저 호출), 타이머·번호 뽑기(TV), 1인1역 주간 순환, 학급 달력. 보상 기능은 보류.
+## 다음
+2차(PRD 4-5)까지 끝. 보상 기능은 보류. 사용자 피드백을 받아 다듬기.

@@ -83,3 +83,21 @@ export const savePref = (key: string, value: unknown) => write('cp_pref_' + key,
 const base = () => `${window.location.origin}${window.location.pathname}`;
 export const inviteUrl = (classId: string) => `${base()}?join=${classId}`;
 export const tvUrl = (classId: string, token: string) => `${base()}#tv/${classId}/${token}`;
+
+// 교실 화면(미션 크게 보기·판서·타이머·번호 뽑기)을 새 창으로 띄움. 교사 기기에서만 열림
+export const boardUrl = (classId: string, missionId?: string) => `${base()}#board/${classId}${missionId ? '/' + missionId : ''}`;
+export function openBoard(classId: string, missionId?: string) {
+  const w = window.screen?.availWidth || 1280;
+  const h = window.screen?.availHeight || 800;
+  const win = window.open(boardUrl(classId, missionId), 'cp-board', `popup=yes,width=${w},height=${h},left=0,top=0`);
+  if (win) {
+    // 이미 열려 있던 창이면 주소만 바꾸고 앞으로
+    try {
+      win.location.hash = `#board/${classId}${missionId ? '/' + missionId : ''}`;
+    } catch {
+      // 무시
+    }
+    win.focus();
+  }
+  return !!win;
+}

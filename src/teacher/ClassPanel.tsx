@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { ClipboardPaste, Download, ExternalLink, KeyRound, LogOut, QrCode, RefreshCw, Save, Settings2, Trash2, TvMinimal, UserMinus, Users } from 'lucide-react';
+import { ClipboardPaste, Download, ExternalLink, KeyRound, LogOut, QrCode, RefreshCw, Save, Search, School, Settings2, Trash2, TvMinimal, Undo2, UserMinus, Users } from 'lucide-react';
+import { counted } from '../lib/api';
 import { errorMessage, inviteUrl, tvUrl } from '../lib/cloud';
 import { formatTime, today } from '../lib/dates';
-import { MAX_STUDENTS, NAME_MAX, TASK_STATE_LABEL } from '../lib/types';
-import { Badge, Button, Card, CopyButton, ErrorNote, Field, IconButton, Input, Modal, SectionTitle, Textarea, toast } from '../ui/kit';
+import { SchoolHit, kindOf, searchSchools } from '../lib/neis';
+import { MAX_STUDENTS, NAME_MAX, SchoolInfo, Student, checkItems, markKey } from '../lib/types';
+import { Badge, Button, Card, CopyButton, ErrorNote, Field, IconButton, Input, Modal, SectionTitle, Select, Textarea, cx, toast } from '../ui/kit';
+import { schoolLabel } from '../ui/school';
 import { useData } from './data';
 
 export default function ClassPanel({ onClassName, onLogout, onDeleted }: { onClassName: (n: string) => void; onLogout: (all: boolean) => void; onDeleted: () => void }) {
@@ -54,10 +57,10 @@ export default function ClassPanel({ onClassName, onLogout, onDeleted }: { onCla
               저장
             </Button>
           </div>
-          <div className="rounded-xl bg-surface-2 border border-line p-4 flex items-center justify-between gap-3">
+          <div className="rounded-xl bg-surface-2 border border-line p-4 flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-xs font-semibold text-ink-3">학급 코드</p>
-              <p className="text-2xl font-bold font-mono tracking-[0.2em] text-brand-strong">{d.classId}</p>
+              <p className="text-2xl font-bold font-mono tracking-[0.2em] text-brand-strong whitespace-nowrap">{d.classId}</p>
             </div>
             <div className="flex gap-2">
               <CopyButton text={d.classId} />
@@ -70,9 +73,9 @@ export default function ClassPanel({ onClassName, onLogout, onDeleted }: { onCla
 
         <Card className="p-5 space-y-4">
           <h3 className="font-bold flex items-center gap-2">
-            <TvMinimal size={18} /> TV 화면 주소
+            <TvMinimal size={18} /> 늘 켜 두는 TV 화면 주소
           </h3>
-          <p className="text-sm text-ink-3">교실 전자칠판 브라우저에서 이 주소를 열어 두세요. 로그인 없이 공지·과제 완료 인원수·지금 열기 QR이 보이고, 학생 이름은 보이지 않아요.</p>
+          <p className="text-sm text-ink-3">교실 전자칠판 브라우저에 이 주소를 열어 두면 로그인 없이 공지·미션 완료 인원수·지금 열기 QR이 보여요. 학생 이름은 보이지 않아요. (미션을 크게 띄우려면 메뉴의 ‘TV 화면 열기’ 버튼)</p>
           <div className="rounded-xl bg-surface-2 border border-line px-3.5 py-3 font-mono text-xs break-all text-ink-2">{tv || '불러오는 중…'}</div>
           <div className="flex flex-wrap gap-2">
             <CopyButton text={tv} label="주소 복사" />
@@ -91,6 +94,8 @@ export default function ClassPanel({ onClassName, onLogout, onDeleted }: { onCla
         </Card>
       </div>
 
+      <SchoolCard />
+
       <Roster onPaste={() => setPaste(true)} />
 
       <Card className="p-5 space-y-4">
@@ -98,7 +103,7 @@ export default function ClassPanel({ onClassName, onLogout, onDeleted }: { onCla
         <p className="text-sm text-ink-3">월 1회와 학기 말에 내려받아 두세요. 엑셀에서 열 수 있어요(CSV).</p>
         <div className="flex flex-wrap gap-2">
           <Button variant="secondary" icon={<Download size={16} />} onClick={() => exportCsv(d)}>
-            과제·공지 기록 내려받기
+            미션·공지 기록 내려받기
           </Button>
           <Button variant="secondary" icon={<LogOut size={16} />} onClick={() => onLogout(false)}>
             이 기기에서 로그아웃
@@ -134,57 +139,99 @@ function Roster({ onPaste }: { onPaste: () => void }) {
   const max = d.info?.maxStudents ?? 0;
   const byNum = new Map(d.students.map((s) => [s.number, s]));
   const numbers = Array.from(new Set([...Array.from({ length: max }, (_, i) => i + 1), ...d.students.map((s) => s.number)])).sort((a, b) => a - b);
+  // 고친 이름만 모아 두었다가 ‘일괄 저장’으로 한 번에 저장
+  const [edits, setEdits] = useState<Record<number, string>>({});
+  const [busy, setBusy] = useState(false);
+  const dirty = Object.entries(edits)
+    .map(([n, name]) => ({ number: Number(n), name: name.trim() }))
+    .filter((r) => r.name && r.name !== (byNum.get(r.number)?.name || ''));
+
+  const saveAll = async () => {
+    if (!dirty.length) return;
+    setBusy(true);
+    try {
+      await d.api.upsertStudents(d.classId, dirty, d.students);
+      setEdits({});
+      toast(`${dirty.length}명의 이름을 저장했어요.`);
+    } catch (e) {
+      toast(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const bar = (
+    <div className="flex items-center gap-2">
+      {dirty.length > 0 && (
+        <Button variant="ghost" size="sm" icon={<Undo2 size={15} />} onClick={() => setEdits({})}>
+          되돌리기
+        </Button>
+      )}
+      <Button size="sm" icon={<Save size={16} />} disabled={!dirty.length || d.privacy} loading={busy} onClick={saveAll}>
+        {dirty.length ? `${dirty.length}명 일괄 저장` : '일괄 저장'}
+      </Button>
+    </div>
+  );
 
   return (
     <section>
       <SectionTitle
         icon={<Users size={18} />}
         title="학생 명단"
-        sub="이름은 언제든 고칠 수 있어요. PIN을 잊은 학생은 ‘PIN 초기화’ 후 다시 정하게 해 주세요."
+        sub="이름을 여러 명 고친 뒤 ‘일괄 저장’을 눌러요. PIN을 잊은 학생은 ‘PIN 초기화’ 후 다시 정하게 해 주세요."
         action={
-          <Button variant="secondary" size="sm" icon={<ClipboardPaste size={16} />} onClick={onPaste}>
-            명단 붙여넣기
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="secondary" size="sm" icon={<ClipboardPaste size={16} />} onClick={onPaste}>
+              명단 붙여넣기
+            </Button>
+            {bar}
+          </div>
         }
       />
       <Card className="divide-y divide-line">
         {numbers.map((n) => (
-          <RosterRow key={n} number={n} student={byNum.get(n)} claimed={!!d.claimed['s' + n]} />
+          <RosterRow
+            key={n}
+            number={n}
+            student={byNum.get(n)}
+            claimed={!!d.claimed['s' + n]}
+            value={edits[n] ?? byNum.get(n)?.name ?? ''}
+            changed={n in edits && (edits[n] || '').trim() !== (byNum.get(n)?.name || '')}
+            onChange={(v) => setEdits((m) => ({ ...m, [n]: v }))}
+            onEnter={saveAll}
+          />
         ))}
       </Card>
+      {dirty.length > 0 && (
+        <div className="sticky bottom-4 z-20 mt-3 flex justify-end">
+          <div className="rounded-2xl bg-surface border border-line shadow-pop p-2 flex items-center gap-2">
+            <span className="text-sm font-semibold text-ink-2 px-2">고친 이름 {dirty.length}개</span>
+            {bar}
+          </div>
+        </div>
+      )}
     </section>
   );
 }
 
-function RosterRow({ number, student, claimed }: { number: number; student?: { sid: string; name: string; joined: boolean }; claimed: boolean }) {
+function RosterRow({ number, student, claimed, value, changed, onChange, onEnter }: { number: number; student?: Student; claimed: boolean; value: string; changed: boolean; onChange: (v: string) => void; onEnter: () => void }) {
   const d = useData();
   const sid = 's' + number;
-  const [name, setName] = useState(student?.name || '');
-  useEffect(() => setName(student?.name || ''), [student?.name]);
-  const dirty = name.trim() !== (student?.name || '') && name.trim().length > 0;
   const status = claimed ? (student?.joined ? { tone: 'ok' as const, label: '참여함' } : { tone: 'brand' as const, label: 'PIN 정함' }) : student ? { tone: 'warn' as const, label: '아직 안 들어옴' } : { tone: 'neutral' as const, label: '빈 번호' };
 
   return (
-    <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2">
+    <div className={cx('flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2', changed && 'bg-brand-soft/40')}>
       <span className="w-9 text-center font-bold tabular-nums text-ink-3 shrink-0">{number}</span>
-      <form
-        className="flex-1 min-w-0 flex gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!dirty) return;
-          d.api
-            .renameStudent(d.classId, sid, name)
-            .then(() => toast('이름을 고쳤어요.'))
-            .catch((er) => toast(errorMessage(er)));
-        }}
-      >
-        <Input value={d.privacy ? '' : name} onChange={(e) => setName(e.target.value)} maxLength={NAME_MAX} placeholder={d.privacy ? '가림 모드' : '이름'} disabled={d.privacy} className="h-10 pii" aria-label={`${number}번 이름`} />
-        {dirty && (
-          <Button type="submit" size="sm" className="h-10">
-            저장
-          </Button>
-        )}
-      </form>
+      <Input
+        value={d.privacy ? '' : value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && onEnter()}
+        maxLength={NAME_MAX}
+        placeholder={d.privacy ? '가림 모드' : '이름'}
+        disabled={d.privacy}
+        className={cx('h-10 pii flex-1 min-w-0', changed && 'border-brand')}
+        aria-label={`${number}번 이름`}
+      />
       <Badge tone={status.tone} className="hidden sm:inline-flex">
         {status.label}
       </Badge>
@@ -198,11 +245,156 @@ function RosterRow({ number, student, claimed }: { number: number; student?: { s
       <IconButton
         label="학생 지우기"
         disabled={!student && !claimed}
-        onClick={() => confirm(`${number}번 학생의 이름·PIN·과제 기록을 모두 지울까요?`) && d.api.removeStudent(d.classId, sid).then(() => toast(`${number}번을 지웠어요.`)).catch((e) => toast(errorMessage(e)))}
+        onClick={() => confirm(`${number}번 학생의 이름·PIN·미션 기록을 모두 지울까요?`) && d.api.removeStudent(d.classId, sid).then(() => toast(`${number}번을 지웠어요.`)).catch((e) => toast(errorMessage(e)))}
       >
         <UserMinus size={17} />
       </IconButton>
     </div>
+  );
+}
+
+// 학교(나이스) 설정: 급식·시간표·학사일정을 불러오려고 학교와 학년·반을 정함
+function SchoolCard() {
+  const d = useData();
+  const cur = d.school;
+  const [open, setOpen] = useState(false);
+  return (
+    <Card className="p-5 space-y-3">
+      <h3 className="font-bold flex items-center gap-2">
+        <School size={18} /> 우리 학교 (급식·시간표·학사일정)
+      </h3>
+      {cur ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex-1 min-w-48">
+            <p className="text-lg font-bold">{schoolLabel(cur)}</p>
+            <p className="text-sm text-ink-3">나이스에서 급식·시간표·학사일정을 가져와 학생 홈과 달력에 보여 줘요. {cur.key ? '인증키 사용 중' : '인증키 없음 (시간표는 5교시까지)'}</p>
+          </div>
+          <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
+            바꾸기
+          </Button>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="text-sm text-ink-3 flex-1 min-w-48">학교를 정하면 나이스의 오늘 급식·시간표가 학생 홈에 보이고, 학사일정이 학급 달력에 함께 보여요.</p>
+          <Button size="sm" icon={<Search size={15} />} onClick={() => setOpen(true)}>
+            학교 찾기
+          </Button>
+        </div>
+      )}
+      {open && <SchoolEditor onClose={() => setOpen(false)} />}
+    </Card>
+  );
+}
+
+function SchoolEditor({ onClose }: { onClose: () => void }) {
+  const d = useData();
+  const cur = d.school;
+  const [q, setQ] = useState(cur?.name || '');
+  const [hits, setHits] = useState<SchoolHit[] | null>(null);
+  const [pick, setPick] = useState<Pick<SchoolInfo, 'office' | 'code' | 'name' | 'kind'> | null>(cur ? { office: cur.office, code: cur.code, name: cur.name, kind: cur.kind } : null);
+  const [grade, setGrade] = useState(String(cur?.grade || 1));
+  const [classNo, setClassNo] = useState(cur?.classNo || '1');
+  const [key, setKey] = useState(cur?.key || '');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const search = async () => {
+    if (q.trim().length < 2) return setError('학교 이름을 두 글자 이상 적어 주세요.');
+    setBusy(true);
+    setError('');
+    try {
+      const list = await searchSchools(q, key.trim() || undefined);
+      setHits(list);
+      if (!list.length) setError('찾는 학교가 없어요. 이름을 확인해 주세요.');
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const save = async () => {
+    if (!pick) return setError('학교를 골라 주세요.');
+    setBusy(true);
+    try {
+      await d.api.saveSchool(d.classId, { ...pick, grade: Number(grade) || 1, classNo: classNo.trim() || '1', key: key.trim() });
+      toast('학교를 정했어요.');
+      onClose();
+    } catch (e) {
+      setError(errorMessage(e));
+      setBusy(false);
+    }
+  };
+  const maxGrade = pick?.kind === 'els' ? 6 : 3;
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title="우리 학교 정하기"
+      footer={
+        <>
+          {cur && (
+            <Button variant="danger" className="mr-auto" onClick={() => confirm('학교 설정을 지울까요?') && d.api.saveSchool(d.classId, null).then(onClose).catch((e) => toast(errorMessage(e)))}>
+              설정 지우기
+            </Button>
+          )}
+          <Button variant="secondary" onClick={onClose}>
+            취소
+          </Button>
+          <Button onClick={save} loading={busy} disabled={!pick}>
+            저장
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <form className="flex gap-2" onSubmit={(e) => (e.preventDefault(), search())}>
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="학교 이름 (예: 서울대도초등학교)" aria-label="학교 이름" autoFocus />
+          <Button type="submit" icon={<Search size={16} />} loading={busy}>
+            찾기
+          </Button>
+        </form>
+        {hits && hits.length > 0 && (
+          <div className="max-h-56 overflow-y-auto space-y-1.5">
+            {hits.map((h) => (
+              <button
+                key={h.office + h.code}
+                type="button"
+                onClick={() => setPick({ office: h.office, code: h.code, name: h.name, kind: kindOf(h.kindName) })}
+                aria-pressed={pick?.code === h.code}
+                className={cx('w-full text-left rounded-xl border px-3 py-2.5 cursor-pointer transition', pick?.code === h.code ? 'border-brand bg-brand-soft' : 'border-line hover:border-line-strong')}
+              >
+                <span className="block font-semibold">{h.name}</span>
+                <span className="block text-xs text-ink-3 truncate">{h.address}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        {pick && (
+          <>
+            <p className="text-sm font-semibold text-brand-strong">고른 학교: {pick.name}</p>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="학년">
+                <Select value={grade} onChange={(e) => setGrade(e.target.value)}>
+                  {Array.from({ length: maxGrade }, (_, i) => (
+                    <option key={i} value={i + 1}>
+                      {i + 1}학년
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="반">
+                <Input value={classNo} onChange={(e) => setClassNo(e.target.value)} maxLength={4} inputMode="numeric" />
+              </Field>
+            </div>
+          </>
+        )}
+        <Field label="나이스 인증키 (선택)" hint="없어도 돼요. 넣으면 6교시까지 시간표가 다 보여요. open.neis.go.kr 에서 무료로 받을 수 있고, 학생 기기에서도 쓰여요(개인정보 없는 공개 자료용).">
+          <Input value={key} onChange={(e) => setKey(e.target.value)} placeholder="인증키" className="font-mono text-sm" />
+        </Field>
+        <ErrorNote>{error}</ErrorNote>
+      </div>
+    </Modal>
   );
 }
 
@@ -311,7 +503,7 @@ function DeleteClass({ onClose, onDeleted }: { onClose: () => void; onDeleted: (
         </>
       }
     >
-      <p className="text-ink-2">학생 명단, 과제 기록, 공지, 링크가 모두 지워지고 되돌릴 수 없어요. 먼저 기록을 내려받아 두세요.</p>
+      <p className="text-ink-2">학생 명단, 미션 기록, 공지, 바로가기, 1인1역, 달력이 모두 지워지고 되돌릴 수 없어요. 먼저 기록을 내려받아 두세요.</p>
       <Field label={`확인을 위해 학급 코드 ${d.classId}를 입력하세요`} className="mt-4">
         <Input value={code} onChange={(e) => setCode(e.target.value)} className="font-mono tracking-widest" />
       </Field>
@@ -329,20 +521,21 @@ function exportCsv(d: ReturnType<typeof useData>) {
   };
   const tasks = [...d.tasks].sort((a, b) => a.due.localeCompare(b.due));
   const notices = [...d.notices].sort((a, b) => a.publishAt - b.publishAt);
-  const head = ['번호', '이름', ...tasks.map((t) => `[과제 ${t.due}] ${t.title}`), ...notices.map((n) => `[공지] ${n.title}`)];
+  const cols = tasks.flatMap((t) => checkItems(t).map((i) => ({ t, i })));
+  const head = ['번호', '이름', ...cols.map(({ t, i }) => `[미션 ${t.due}] ${t.title} - ${i.text}`), ...notices.map((n) => `[공지] ${n.title}`)];
   const lines = [head.map(esc).join(',')];
   for (const s of d.students) {
     const st = d.statuses[s.sid];
     const row: (string | number)[] = [s.number, s.name];
-    tasks.forEach((t) => {
+    cols.forEach(({ t, i }) => {
       if (t.targets && !t.targets.includes(s.sid)) return row.push('대상 아님');
-      const m = st?.tasks?.[t.id];
-      row.push(m ? TASK_STATE_LABEL[m.state] + (m.note ? ` (${m.note})` : '') : TASK_STATE_LABEL.todo);
+      const m = st?.tasks?.[markKey(t.id, i.id)];
+      row.push(counted(m?.state) ? `완료 ${m ? formatTime(m.at) : ''}`.trim() : '미완료');
     });
     notices.forEach((n) => row.push(st?.reads?.[n.id] ? `읽음 ${formatTime(st.reads[n.id])}` : '안 읽음'));
     lines.push(row.map(esc).join(','));
   }
-  const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `${d.info?.name || d.classId}_기록_${today()}.csv`;

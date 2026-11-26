@@ -28,7 +28,10 @@ export interface Student {
   nameAt?: number; // 학생 본인이 이름을 바꾼 때
 }
 
-export const LINK_CATEGORIES = ['국어', '수학', '사회', '과학', '영어', '예체능', '도구', '놀이', '기타'] as const;
+// 바로가기 분류 (학생 화면에서는 맨 앞에 '전체'가 붙음)
+export const LINK_CATEGORIES = ['국어', '수학', '사회', '과학', '도덕', '미술', '실과', '기타'] as const;
+// 예전 분류(영어·예체능·도구·놀이 등)는 '기타'로 보여 줌
+export const linkCategory = (c: string) => ((LINK_CATEGORIES as readonly string[]).includes(c) ? c : '기타');
 
 export interface LinkItem {
   id: string;
@@ -41,7 +44,7 @@ export interface LinkItem {
   hidden: boolean;
 }
 
-// '지금 열기': 교사가 보낸 링크 하나 (그날만 보임)
+// '지금 열기': 교사가 보낸 바로가기 하나 (그날만 보임)
 export interface NowLink {
   title: string;
   url: string;
@@ -50,40 +53,45 @@ export interface NowLink {
   at: number;
 }
 
-export type TaskState = 'todo' | 'done' | 'checked' | 'redo';
-export const TASK_STATE_LABEL: Record<TaskState, string> = {
-  todo: '미완료',
-  done: '다 했어요',
-  checked: '확인',
-  redo: '다시 해요'
-};
+// 미션 칸 상태: 학생이 '완료'를 누르면 done (선생님은 현황만 봄)
+export type TaskState = 'todo' | 'done';
 
+// 미션 한 줄. check 가 켜진 줄만 학생이 완료 체크를 함. sub 는 윗줄에 딸린 줄(들여쓰기)
+export interface MissionItem {
+  id: string;
+  text: string;
+  check: boolean;
+  sub: boolean;
+}
+
+// 미션 (코드 안에서는 예전 이름 Task 를 그대로 씀)
 export interface Task {
   id: string;
   title: string;
-  desc: string;
-  due: string; // YYYY-MM-DD
+  items: MissionItem[];
+  due: string; // YYYY-MM-DD (이 날까지 보임)
   targets: string[] | null; // null 이면 전체, 아니면 sid 목록
   linkUrl: string;
-  paper: boolean; // 종이 과제 (학생 표시 없이 교사가 확인)
   createdAt: number;
 }
 
 export interface TaskTemplate {
   id: string;
   title: string;
-  desc: string;
+  items: MissionItem[];
   linkUrl: string;
-  paper: boolean;
 }
 
 export interface TaskMark {
   state: TaskState;
-  note?: string;
   at: number;
 }
 
-// 학생 한 명의 기록: 과제 상태 + 공지 읽은 때
+// 완료 체크 칸 하나의 이름: 미션ID_줄ID (학생 기록·완료 인원수에 씀)
+export const markKey = (taskId: string, itemId: string) => `${taskId}_${itemId}`;
+export const checkItems = (t: { items?: MissionItem[] }) => (t.items || []).filter((i) => i.check);
+
+// 학생 한 명의 기록: 미션 완료 칸 + 공지 읽은 때
 export interface StudentStatus {
   tasks: Record<string, TaskMark>;
   reads: Record<string, number>;
@@ -113,8 +121,50 @@ export interface Notice extends NoticeSummary {
 export interface LiveDoc {
   now: NowLink | null;
   notices: Record<string, NoticeSummary>;
-  tasks: Record<string, { title: string; due: string; total: number; paper: boolean }>;
-  done: Record<string, number>; // 과제별 완료(다 했어요 + 확인) 인원수
+  tasks: Record<string, LiveTask>;
+  checks: Record<string, true>; // 완료 체크 칸 목록 (보안 규칙이 씀)
+  done: Record<string, number>; // 완료 체크 칸별 완료 인원수
+}
+
+export interface LiveTask {
+  title: string;
+  due: string;
+  total: number;
+  items: MissionItem[];
+  targets: string[] | null;
+}
+
+// ---- 2차: 학교(나이스) · 1인1역 · 학급 달력 ----
+export type SchoolKind = 'els' | 'mis' | 'his';
+export interface SchoolInfo {
+  office: string; // 시도교육청 코드
+  code: string; // 학교 코드
+  name: string;
+  kind: SchoolKind;
+  grade: number;
+  classNo: string;
+  key: string; // 나이스 인증키 (선택)
+}
+
+export interface Role {
+  id: string;
+  name: string;
+  icon: string;
+}
+export interface RolesDoc {
+  items: Role[];
+  order: string[]; // 돌아가는 학생 순서 (sid)
+  start: string; // 순환을 시작한 주의 월요일
+  shift: number; // 선생님이 앞뒤로 옮긴 칸 수
+}
+
+export const EVENT_KINDS = ['행사', '시험', '체험학습', '휴일', '기타'] as const;
+export interface CalEvent {
+  id: string;
+  date: string; // YYYY-MM-DD
+  end: string; // 끝나는 날 (하루짜리면 date 와 같음)
+  title: string;
+  kind: string;
 }
 
 export interface StudentSession {

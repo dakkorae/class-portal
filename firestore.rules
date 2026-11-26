@@ -8,8 +8,8 @@ rules_version = '2';
 // - 관리자 키·교사 비밀번호·학생 PIN은 해시만 저장하고, 그 문서는 누구도 읽지 못함
 // - 비밀번호를 아는 기기만 자기 uid로 등록 문서(admins / teachers / members / screens)를 만들 수 있고,
 //   그 등록 문서가 있어야 해당 역할로 읽고 쓸 수 있음
-// - 학생은 자기 기록만 쓰고, 과제 '확인'·링크·공지는 교사만 씀
-// - 관리자는 학급을 지울 수 있지만 학생 명단·과제 기록·공지 내용은 읽지 못함
+// - 학생은 자기 기록(미션 완료 체크·공지 읽음)만 쓰고, 미션·바로가기·공지·1인1역·달력은 교사만 씀
+// - 관리자는 학급을 지울 수 있지만 학생 명단·미션 기록·공지 내용은 읽지 못함
 service cloud.firestore {
   match /databases/{db}/documents {
 
@@ -109,7 +109,7 @@ service cloud.firestore {
         && getAfter(path('inviteCodes', request.resource.data.inviteCode)).data.usedCount
            == get(path('inviteCodes', request.resource.data.inviteCode)).data.usedCount + 1
         && existsAfter(cls(cid, 'teachers', request.auth.uid));
-      // 교사가 바꿀 수 있는 것: 학급 이름, 정원, 과제·공지 ID 목록(refs: 학급 삭제 때 쓰임)
+      // 교사가 바꿀 수 있는 것: 학급 이름, 정원, 미션·공지 ID 목록(refs: 학급 삭제 때 쓰임)
       allow update: if isTeacher(cid)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'maxStudents', 'refs'])
         && request.resource.data.name is string && request.resource.data.name.size() >= 1 && request.resource.data.name.size() <= 40
@@ -221,20 +221,17 @@ service cloud.firestore {
         allow delete: if canWipe(cid);
       }
 
-      // 학생 한 명의 기록 { tasks:{과제ID:{state,note,at}}, reads:{공지ID:시각}, last }: 본인과 교사만 읽음
-      // 학생은 과제 하나의 상태를 '다 했어요'(done) 또는 '미완료'(todo)로만 바꿀 수 있고, 교사가 '확인'한 과제는 못 바꿈
+      // 학생 한 명의 기록 { tasks:{완료칸(미션ID_줄ID):{state,at}}, reads:{공지ID:시각}, last }: 본인과 교사만 읽음
+      // 학생은 한 번에 완료 칸 하나를 '완료'(done) 또는 '미완료'(todo)로만 바꿀 수 있음
       match /status/{sid} {
         function studentTaskOk(before) {
           let d = request.resource.data;
           let t = d.last;
-          let old = before.get('tasks', {}).get(t, {});
           return t is string
             && d.tasks.diff(before.get('tasks', {})).affectedKeys().hasOnly([t])
-            && d.tasks[t].keys().hasOnly(['state', 'at', 'note'])
+            && d.tasks[t].keys().hasOnly(['state', 'at'])
             && d.tasks[t].state in ['done', 'todo']
-            && d.tasks[t].at == request.time
-            && d.tasks[t].get('note', '') == old.get('note', '')
-            && old.get('state', 'todo') != 'checked';
+            && d.tasks[t].at == request.time;
         }
         function studentWriteOk(before) {
           let changed = request.resource.data.diff(before).affectedKeys();
@@ -264,8 +261,8 @@ service cloud.firestore {
         allow delete: if canWipe(cid);
       }
 
-      // 실시간 문서 ('지금 열기'·공지 목록 요약·과제 요약과 완료 인원수): 학생·TV·교사가 읽음
-      // 학생은 자기가 '다 했어요'를 누르거나 되돌릴 때 그 과제의 완료 인원수만 1씩 바꿀 수 있음 (교사 화면이 실제 기록으로 바로잡음)
+      // 실시간 문서 ('지금 열기'·공지 목록 요약·미션 요약·완료 칸 목록과 칸별 완료 인원수): 학생·TV·교사가 읽음
+      // 학생은 자기가 완료 칸을 누르거나 되돌릴 때 그 칸의 완료 인원수만 1씩 바꿀 수 있음 (교사 화면이 실제 기록으로 바로잡음)
       match /public/live {
         allow get: if isTeacher(cid) || isMember(cid) || isScreen(cid);
         allow create: if isTeacher(cid) || isNewClassBy(cid);
@@ -273,14 +270,14 @@ service cloud.firestore {
           || (isMember(cid)
               && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['done', 'doneLast'])
               && request.resource.data.doneLast is string
-              && request.resource.data.doneLast in resource.data.get('tasks', {})
+              && request.resource.data.doneLast in resource.data.get('checks', {})
               && request.resource.data.done.diff(resource.data.get('done', {})).affectedKeys().hasOnly([request.resource.data.doneLast])
               && (request.resource.data.done[request.resource.data.doneLast] == resource.data.get('done', {}).get(request.resource.data.doneLast, 0) + 1
                   || request.resource.data.done[request.resource.data.doneLast] == resource.data.get('done', {}).get(request.resource.data.doneLast, 0) - 1));
         allow delete: if canWipe(cid);
       }
 
-      // 링크 모음 { items:{id:링크} }: 학생·교사가 읽고, 교사만 씀
+      // 바로가기 모음 { items:{id:바로가기} }: 학생·교사가 읽고, 교사만 씀
       match /public/links {
         allow get: if isTeacher(cid) || isMember(cid);
         allow create: if isTeacher(cid) || isNewClassBy(cid);
@@ -288,7 +285,14 @@ service cloud.firestore {
         allow delete: if canWipe(cid);
       }
 
-      // 과제: 학생·교사가 읽고, 교사만 씀
+      // 학교(나이스) 설정 · 1인1역 · 학급 달력: 학생·TV·교사가 읽고, 교사만 씀
+      match /public/{docId} {
+        allow get: if docId in ['school', 'roles', 'calendar'] && (isTeacher(cid) || isMember(cid) || isScreen(cid));
+        allow create, update: if docId in ['school', 'roles', 'calendar'] && isTeacher(cid);
+        allow delete: if docId in ['school', 'roles', 'calendar'] && canWipe(cid);
+      }
+
+      // 미션: 학생·교사가 읽고, 교사만 씀
       match /tasks/{tid} {
         allow read: if isTeacher(cid) || isMember(cid);
         allow create, update: if isTeacher(cid);
@@ -303,7 +307,7 @@ service cloud.firestore {
         allow delete: if canWipe(cid);
       }
 
-      // 교사만 쓰는 자료 (과제 템플릿)
+      // 교사만 쓰는 자료 (미션 템플릿)
       match /private/{docId} {
         allow read, write: if isTeacher(cid);
         allow delete: if canWipe(cid);
