@@ -4,7 +4,7 @@
 
 ## 한눈에
 - 학급 포털 웹앱. 기획서: 우리 반 학급 포털 PRD (claude.ai 문서). 화면에 쓰는 말: **바로가기**(예전 ‘링크’), **공지 및 미션**(예전 ‘과제’·‘미션’, 따로 있던 ‘공지’ 기능은 없앰). 기능 = 로그인(관리자·교사·학생) + 바로가기·지금 열기 + 공지 및 미션(날짜별, 한 게시물에 공지 글 + 미션 줄, 줄마다 대상 학생·완료 체크) + TV·편의기능 탭(교실 화면: 공지·미션 크게·판서·타이머·번호 뽑기·지각생 하교 타이머) + 나이스 급식·학사일정(시간표는 뺌) + 1인1역(주마다 교사가 직접 배정) + 학급 달력 + 화면 설정(테마 12가지·글꼴 8가지, 기기별).
-- 디자인: 기본은 ‘솜사탕 파스텔’ 테마 + 고운돋움 글꼴(시안 6장 중 A-1 선택). 교사 ‘화면 설정’ · 학생 ‘나’에서 기기마다 테마·글꼴을 바꿀 수 있음(`src/ui/skins.ts`). 교실 화면 기본 테마도 ‘솜사탕’(칠판·검정·흰색도 고를 수 있음). 교실 화면도 자체 테마(솜사탕·칠판·검정·흰색).
+- 디자인: 기본은 ‘솜사탕 파스텔’ 테마 + 고운돋움 글꼴(시안 6장 중 A-1 선택). 교사 ‘화면 설정’ · 학생 ‘나’에서 기기마다 테마·글꼴을 바꿀 수 있음(`src/ui/skins.ts`). 교실 화면은 자체 테마(기본 ‘솜사탕’, 칠판·검정·흰색도 고를 수 있음).
 - React 19 + TypeScript + Vite 6 + Tailwind 4, PWA(`public/sw.js`, `manifest.webmanifest`). 서버는 Firebase Spark(Firestore 서울 + 익명 로그인). Functions·Storage 쓰지 않음.
 - Firebase 프로젝트 `uriban-portal`(계정 dakkorae), 배포 주소 https://uriban-portal.web.app 와 Vercel https://potal-sand.vercel.app (GitHub `main` 에 올리면 Vercel이 자동 배포). 저장소 `dakkorae/class-portal` 의 `main` (예전 이름 `potal` 에서 바뀜. 작업이 끝나면 `main` 에 바로 커밋·푸시).
 - 배포: Vercel은 푸시만 하면 자동. Firebase Hosting·규칙은 `npm run build && npx firebase-tools deploy --only firestore:rules,auth,hosting` (규칙을 바꾸면 이 명령으로 같이 올라감).
@@ -26,9 +26,9 @@
 | `src/ui/DateNav.tsx` | 날짜 이동(‹ 날짜 › · 달력 팝업 · 오늘로). 미션은 교사·학생 모두 이것으로 날짜별로 봄. 학생 홈의 급식 카드도 고른 날짜를 따라감(`SchoolToday day`) |
 | `src/ui/tiles.ts` · `index.css .tile3d` | 바로가기 3D 타일 아이콘. 분류 11개(국어·수학·사회·과학·영어·도덕·체육·음악·미술·실과·기타) × 그림 16개, 분류 색 |
 | `src/ui/calendar.tsx` | 달력 칸(MonthGrid), 일정 펼치기 |
-| `src/board/BoardApp.tsx` · `LateTimer.tsx` | 교실 화면(‘TV 화면 열기’): 미션 크게(완료 인원) · 판서(펜·지우개·되돌리기) · 타이머 · 번호 뽑기 · 지각생 하교 타이머(사용자가 준 HTML을 React로 옮겨 교실 화면 테마 색 `--b-*` 에 맞춤, 종소리는 Web Audio 도·미·솔 5번, 서버 저장 없음), 솜사탕/칠판/검정/흰색 테마. 1인1역은 교실 화면에서 뺌 |
-| `src/student/*` | JoinFlow(코드→번호→PIN→이름), StudentPortal(홈·링크·공지·나), PinPad |
-| `src/teacher/*` | TeacherApp(열기·개설·재설정·기록 안내), Workspace(메뉴·가림 모드), data.ts(실시간 구독 + `syncLive`), Dashboard, LinksPanel(바로가기), MissionsPanel(미션 카드·완료 현황표(보기 전용)·편집기·템플릿), NoticesPanel, RolesPanel, CalendarPanel, ClassPanel(명단 일괄 저장·학교 설정·TV 주소·CSV·삭제) |
+| `src/board/BoardApp.tsx` · `LateTimer.tsx` | 교실 화면(‘TV·편의기능’ 탭에서 엶): 공지·미션 크게(완료 인원) · 판서(키보드로 크게 쓰기 `WriteView` + 어느 화면에서나 펜·지우개·되돌리기) · 타이머 · 번호 뽑기 · 지각생 하교 타이머(사용자가 준 HTML을 React로 옮겨 교실 화면 테마 색 `--b-*` 에 맞춤, 종소리는 Web Audio 도·미·솔 5번, 서버 저장 없음), 솜사탕/칠판/검정/흰색 테마. 1인1역은 교실 화면에서 뺌 |
+| `src/student/*` | JoinFlow(코드→번호→PIN→이름), StudentPortal(홈[공지 및 미션·급식·일정]·바로가기·달력·나), PinPad |
+| `src/teacher/*` | TeacherApp(열기·개설·재설정·기록 안내), Workspace(메뉴·가림 모드), data.ts(실시간 구독 + `syncLive`), Dashboard, LinksPanel(바로가기), MissionsPanel(공지 및 미션: 카드·완료 현황표(보기 전용)·편집기(공지 글+미션 줄, 줄마다 대상 학생)·템플릿), TvToolsPanel, RolesPanel, CalendarPanel, ClassPanel(명단 일괄 저장·학교 설정·CSV·삭제) |
 | `src/admin/AdminApp.tsx` | 관리자 |
 | `src/teacher/TvToolsPanel.tsx` | ‘TV·편의기능’ 탭: 교실 화면 모드별 ‘띄우기’ 카드와 쓰는 법 |
 | `src/ui/kit.tsx` | 버튼(둥근 알약 모양, 주 버튼은 분홍→보라 그라데이션)·카드(2px 분홍 테두리)·입력·모달·토스트 등. 색은 이름 붙은 토큰(`bg-surface`, `text-ink-3`, `bg-brand` …)만 씀 → 어두운 화면 자동 |
