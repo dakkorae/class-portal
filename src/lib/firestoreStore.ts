@@ -11,6 +11,7 @@ import {
   initializeFirestore,
   onSnapshot,
   persistentLocalCache,
+  persistentMultipleTabManager,
   query,
   serverTimestamp,
   where,
@@ -60,10 +61,10 @@ function toFs(v: unknown): unknown {
 export function createFirestoreStore(config: FirebaseConfig): Store {
   const app = initializeApp(config);
   const auth = getAuth(app);
-  // 기기에 사본을 두어 다시 열 때 빠르게 뜨고 읽기 횟수도 줄임
+  // 기기에 사본을 두어 다시 열 때 빠르게 뜨고 읽기 횟수도 줄임 (교사 화면과 TV 화면을 같은 브라우저의 여러 탭에서 열어도 되도록)
   let db;
   try {
-    db = initializeFirestore(app, { localCache: persistentLocalCache() });
+    db = initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
   } catch {
     db = initializeFirestore(app, {});
   }

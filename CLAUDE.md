@@ -5,6 +5,8 @@
 ## 한눈에
 - 학급 포털 웹앱. 기획서: 우리 반 학급 포털 PRD (claude.ai 문서). MVP = 로그인(관리자·교사·학생) + 링크·지금 열기 + 과제 체크 + 공지 + TV 화면.
 - React 19 + TypeScript + Vite 6 + Tailwind 4, PWA(`public/sw.js`, `manifest.webmanifest`). 서버는 Firebase Spark(Firestore 서울 + 익명 로그인). Functions·Storage 쓰지 않음.
+- Firebase 프로젝트 `uriban-portal`(계정 dakkorae), 배포 주소 https://uriban-portal.web.app . 저장소 `dakkorae/potal` 의 `main`.
+- 배포: `npm run build && npx firebase-tools deploy --only firestore:rules,auth,hosting` (규칙을 바꾸면 이 명령으로 같이 올라감).
 - 주소로 화면 나누기(`src/App.tsx`): `/` 학생, `#teacher`, `#admin`, `#tv/학급코드/비밀값`. 교사·관리자·TV 화면은 `lazy()` 로 따로 내려받음.
 - IB 대시보드(dakkorae/IBL)의 로그인·개설 코드·재설정 코드·규칙 시험 방식을 가져와 고쳐 씀.
 
@@ -30,6 +32,7 @@
 - 학생은 자기 기록만 쓰고 ‘다 했어요’/되돌리기만. ‘확인’·‘다시 해요’는 교사만. 학생이 완료 인원수를 ±1 하면 교사 화면이 열려 있을 때 `syncLive` 가 실제 기록으로 바로잡음.
 - 묶음 쓰기로 “자기 것 하나만 바꿨는지” 규칙이 검사(`last`, `doneLast` 표시 칸). 서버 동작을 바꾸면 **규칙과 시험 스크립트도 같이** 고침.
 - 학급 삭제는 10개씩 묶어 지움(규칙 호출 한도).
+- 학급 문서는 교사·관리자만 읽음 → 학급이 있는지 확인·이름 읽기는 `public/roster` 로. (규칙 시험만으로는 못 잡는 앱 쪽 실수가 있으므로 실제 서버 시험도 함께: 시험용 개설 코드를 만들어 눌러 보고 학급 삭제로 정리)
 - 규칙을 바꾸면 사용자에게 콘솔 게시(또는 `firebase deploy --only firestore:rules`)를 안내.
 
 ## 확인 방법

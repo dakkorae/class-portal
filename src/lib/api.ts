@@ -155,7 +155,8 @@ export function createApi(store: Store) {
         throw new Error('개설 코드가 올바르지 않거나 이미 모두 사용되었어요.');
       }
       let cid = randomCode(6);
-      while (await store.get(C(cid))) cid = randomCode(6);
+      // 학급 코드가 겹치는지는 누구나 읽을 수 있는 public/roster 로 확인 (학급 문서는 교사·관리자만 읽음)
+      while (await store.get(C(cid, 'public/roster'))) cid = randomCode(6);
       const keyHash = await teacherKeyHash(cid, input.password);
       const max = Math.min(MAX_STUDENTS, Math.max(1, Math.round(input.maxStudents) || 30));
       const info = { name: input.name.trim(), inviteCode: code, createdAt: Date.now(), maxStudents: max };
