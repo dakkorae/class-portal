@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { UtensilsCrossed } from 'lucide-react';
 import { Meal, getMeals, getSchedule } from '../lib/neis';
 import { SchoolInfo } from '../lib/types';
-import { today } from '../lib/dates';
+import { formatDay, today } from '../lib/dates';
 import { Card } from './kit';
 
 // 오늘(또는 고른 날)의 급식을 나이스에서 가져옴
@@ -42,9 +42,10 @@ export function useSchoolSchedule(school: SchoolInfo | null, from: string, to: s
   return items;
 }
 
-// 오늘 급식 카드 (학생 홈 · 교사 대시보드)
-export function SchoolToday({ school }: { school: SchoolInfo | null }) {
-  const { meal, state } = useSchoolMeal(school);
+// 급식 카드 (학생 홈은 고른 날짜, 교사 대시보드는 오늘)
+export function SchoolToday({ school, day = today() }: { school: SchoolInfo | null; day?: string }) {
+  const { meal, state } = useSchoolMeal(school, day);
+  const label = day === today() ? '오늘' : formatDay(day);
   if (!school) return null;
   const loading = state === 'loading' || state === 'idle';
   return (
@@ -53,13 +54,13 @@ export function SchoolToday({ school }: { school: SchoolInfo | null }) {
         <span className="w-8 h-8 rounded-lg bg-warn-soft text-warn flex items-center justify-center">
           <UtensilsCrossed size={16} />
         </span>
-        오늘 급식
+        {label} 급식
         {meal?.cal && <span className="text-xs font-semibold text-ink-3 ml-auto">{meal.cal}</span>}
       </h3>
       {loading ? (
         <Skeleton rows={3} />
       ) : !meal ? (
-        <p className="text-sm text-ink-3 py-2">{state === 'error' ? '급식을 불러오지 못했어요.' : '오늘은 급식이 없어요.'}</p>
+        <p className="text-sm text-ink-3 py-2">{state === 'error' ? '급식을 불러오지 못했어요.' : `${label}은 급식이 없어요.`}</p>
       ) : (
         <ul className="flex flex-wrap gap-1.5">
           {meal.dishes.map((d, i) => (

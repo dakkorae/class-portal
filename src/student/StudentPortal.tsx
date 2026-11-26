@@ -232,7 +232,7 @@ export default function StudentPortal({ session, onSignedOut }: { session: Stude
               )}
             </section>
 
-            <SchoolToday school={school} />
+            <SchoolToday school={school} day={day} />
 
             {soon.length > 0 && (
               <section>

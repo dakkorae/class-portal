@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, ChevronLeft, ChevronRight, Dices, Eraser, Expand, Eye, EyeOff, ListChecks, Minus, Pause, PenLine, Play, Plus, RotateCcw, Shrink, Timer, Trash2, Undo2, UsersRound } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Dices, Eraser, Expand, Eye, EyeOff, ListChecks, Minus, Pause, PenLine, Play, Plus, RotateCcw, Shrink, Timer, Trash2, Undo2, AlarmClock } from 'lucide-react';
 import { emptyLive } from '../lib/api';
 import { errorMessage, getApi, loadPref, savePref } from '../lib/cloud';
 import { dueLabel, formatLongToday, today } from '../lib/dates';
-import { weekOf } from '../lib/roles';
-import { LiveDoc, RolesDoc, Student, Task, markKey } from '../lib/types';
+import { LateView, useLateTimers } from './LateTimer';
+import { LiveDoc, Student, Task, markKey } from '../lib/types';
 import { cx } from '../ui/kit';
 
-// 교실 화면 (교사 기기에서 새 창으로 엶): 미션을 크게 보여 주고, 판서·타이머·번호 뽑기·1인1역을 함께 씀
+// 교실 화면 (교사 기기에서 새 창으로 엶): 미션을 크게 보여 주고, 판서·타이머·번호 뽑기·지각생 하교 타이머를 함께 씀
 // 주소: #board/학급코드/미션ID(선택)
-type Mode = 'mission' | 'timer' | 'picker' | 'roles';
+type Mode = 'mission' | 'timer' | 'picker' | 'late';
 type Theme = 'pastel' | 'chalk' | 'dark' | 'white';
 type Stroke = { color: string; width: number; erase: boolean; pts: [number, number][] };
 
@@ -33,7 +33,6 @@ export default function BoardApp({ classId, missionId }: { classId: string; miss
   const [tasks, setTasks] = useState<Task[]>([]);
   const [live, setLive] = useState<LiveDoc>(emptyLive);
   const [students, setStudents] = useState<Student[]>([]);
-  const [roles, setRoles] = useState<RolesDoc | null>(null);
   const [maxStudents, setMax] = useState(30);
   const [mode, setMode] = useState<Mode>('mission');
   const [theme, setTheme] = useState<Theme>(() => loadPref<Theme>('board_theme', 'pastel'));
@@ -57,8 +56,7 @@ export default function BoardApp({ classId, missionId }: { classId: string; miss
           a.watchClass(classId, (c) => (setClassName(c?.name || ''), setMax(c?.maxStudents || 30)), onErr),
           a.watchTasks(classId, setTasks, onErr),
           a.watchLive(classId, setLive, onErr),
-          a.watchStudents(classId, setStudents, onErr),
-          a.watchRoles(classId, setRoles, onErr)
+          a.watchStudents(classId, setStudents, onErr)
         ];
         if (alive) setState('ok');
       } catch (e) {
@@ -120,6 +118,8 @@ export default function BoardApp({ classId, missionId }: { classId: string; miss
 
   // ---- 타이머 ----
   const timer = useTimer();
+  // ---- 지각생 하교 타이머 (다른 메뉴로 가도 계속 잼) ----
+  const late = useLateTimers();
   // ---- 번호 뽑기 ----
   const pool = useMemo(() => (students.length ? students.map((s) => s.number) : Array.from({ length: maxStudents }, (_, i) => i + 1)), [students, maxStudents]);
 
@@ -173,7 +173,7 @@ export default function BoardApp({ classId, missionId }: { classId: string; miss
               ['mission', '미션', <ListChecks key="m" size={18} />],
               ['timer', '타이머', <Timer key="t" size={18} />],
               ['picker', '번호 뽑기', <Dices key="p" size={18} />],
-              ['roles', '1인1역', <UsersRound key="r" size={18} />]
+              ['late', '지각생 타이머', <AlarmClock key="l" size={18} />]
             ] as [Mode, string, React.ReactNode][]
           ).map(([m, label, icon]) => (
             <button key={m} type="button" onClick={() => setMode(m)} aria-pressed={mode === m} className={cx('h-10 px-3 rounded-lg flex items-center gap-1.5 font-bold text-sm cursor-pointer transition', mode === m ? 'b-active' : 'b-ink2 hover:b-ink')}>
@@ -182,6 +182,7 @@ export default function BoardApp({ classId, missionId }: { classId: string; miss
             </button>
           ))}
           {timer.running && mode !== 'timer' && <span className="px-2 font-bold tabular-nums b-accent text-sm">{fmt(timer.left)}</span>}
+          {late.running && mode !== 'late' && <span className="px-2 font-bold b-accent text-sm">⏱️ 지각생 {late.list.filter((x) => x.status === 'running').length}명</span>}
         </nav>
         <div className="ml-auto flex items-center gap-1.5">
           <ToolBtn label="펜 (P)" active={pen} onClick={() => setPen(!pen)}>
@@ -242,7 +243,7 @@ export default function BoardApp({ classId, missionId }: { classId: string; miss
           {mode === 'mission' && <MissionView task={task} index={idx} count={list.length} live={live} total={task ? (task.targets ? task.targets.length : students.length) : 0} showCount={showCount} onToggleCount={() => setPref(setShowCount, 'board_count')(!showCount)} onPrev={() => go(-1)} onNext={() => go(1)} />}
           {mode === 'timer' && <TimerView timer={timer} />}
           {mode === 'picker' && <PickerView pool={pool} students={students} showNames={showNames} setShowNames={setShowNames} />}
-          {mode === 'roles' && <RolesView roles={roles} students={students} showNames={showNames} setShowNames={setShowNames} />}
+          {mode === 'late' && <LateView late={late} students={students} />}
         </div>
         <PenCanvas active={pen} eraser={eraser} color={color} width={width} strokes={strokes[boardKey] || []} onStroke={(s) => setStrokes((m) => ({ ...m, [boardKey]: [...(m[boardKey] || []), s] }))} />
       </main>
@@ -605,57 +606,6 @@ function PickerView({ pool, students, showNames, setShowNames }: { pool: number[
           ))}
         </div>
       )}
-    </div>
-  );
-}
-
-// ---------- 1인1역 ----------
-function RolesView({ roles, students, showNames, setShowNames }: { roles: RolesDoc | null; students: Student[]; showNames: boolean; setShowNames: (v: boolean) => void }) {
-  if (!roles || !roles.items.length)
-    return (
-      <div className="h-full flex flex-col items-center justify-center text-center p-8">
-        <p className="text-[2em] font-bold">아직 1인1역이 없어요</p>
-        <p className="text-[1em] b-ink2 mt-[0.4em]">교사 화면의 ‘1인1역’에서 역할을 만들어 보세요.</p>
-      </div>
-    );
-  const map = weekOf(roles);
-  const names = new Map(students.map((s) => [s.sid, s.name]));
-  return (
-    <div className="min-h-full px-[4%] py-[2.5%]">
-      <div className="flex items-center gap-3 mb-[0.6em]">
-        <h1 className="text-[1.9em] font-extrabold tracking-tight">이번 주 1인1역</h1>
-        <label className="ml-auto flex items-center gap-2 text-base font-semibold cursor-pointer">
-          <input type="checkbox" checked={showNames} onChange={(e) => setShowNames(e.target.checked)} className="w-5 h-5" /> 이름도 보이기
-        </label>
-      </div>
-      <div className="grid gap-[0.5em]" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 11em), 1fr))' }}>
-        {roles.items.map((r) => {
-          const sids = map[r.id] || [];
-          return (
-            <div key={r.id} className="rounded-[0.5em] b-panel border b-line p-[0.6em] flex items-center gap-[0.5em]">
-              <span className="text-[1.7em]" aria-hidden>
-                {r.icon}
-              </span>
-              <div className="min-w-0">
-                <p className="text-[0.75em] font-semibold b-ink2 truncate">{r.name}</p>
-                <p className="text-[1.2em] font-extrabold truncate">
-                  {sids.length === 0 ? (
-                    <span className="b-ink2">—</span>
-                  ) : (
-                    sids.map((sid, i) => (
-                      <span key={sid}>
-                        {i > 0 && <span className="b-ink2">, </span>}
-                        <span className="b-accent tabular-nums">{Number(sid.slice(1))}번</span>
-                        {showNames && names.get(sid) && <span className="ml-[0.25em]">{names.get(sid)}</span>}
-                      </span>
-                    ))
-                  )}
-                </p>
-              </div>
-            </div>
-          );
-        })}
-      </div>
     </div>
   );
 }

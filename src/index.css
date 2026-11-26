@@ -277,3 +277,44 @@ body {
 .b-pop {
   animation: b-pop 0.35s ease-out;
 }
+
+/* 교실 화면 – 지각생 하교 타이머 */
+@utility b-ok {
+  color: var(--b-ok);
+}
+@utility b-field {
+  background: var(--b-bg);
+  color: var(--b-ink);
+}
+@utility b-inset {
+  background: color-mix(in srgb, var(--b-bg) 70%, var(--b-panel));
+  box-shadow: inset 0 2px 8px rgb(0 0 0 / 0.08);
+}
+@utility b-track-bg {
+  background: color-mix(in srgb, var(--b-ink2) 18%, transparent);
+}
+@utility b-fill {
+  background: var(--b-accent);
+}
+@utility b-fill-idle {
+  background: color-mix(in srgb, var(--b-ink2) 45%, transparent);
+}
+@utility b-ok-border {
+  border-color: var(--b-ok);
+}
+@utility b-ok-btn {
+  background: var(--b-ok);
+  color: var(--b-bg);
+}
+@keyframes b-alarm-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+.b-alarm {
+  border-color: var(--b-accent);
+  background: color-mix(in srgb, var(--b-accent) 16%, var(--b-panel));
+  animation: b-alarm-pulse 1s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .b-alarm { animation: none; }
+}

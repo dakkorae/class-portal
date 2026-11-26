@@ -3,7 +3,7 @@
 새 대화에서 이 파일만 읽으면 이어서 작업할 수 있도록 정리했습니다. 사용자(서성민 선생님)는 비개발자 → **설명은 쉬운 한국어로, 용어는 풀어서**.
 
 ## 한눈에
-- 학급 포털 웹앱. 기획서: 우리 반 학급 포털 PRD (claude.ai 문서). 화면에 쓰는 말: **바로가기**(예전 ‘링크’), **미션**(예전 ‘과제’). 기능 = 로그인(관리자·교사·학생) + 바로가기·지금 열기 + 미션(날짜별, 완료 체크 줄 따로) + 공지 + TV 화면 + 교실 화면(판서·타이머·번호 뽑기) + 나이스 급식·학사일정(시간표는 뺌) + 1인1역(주마다 교사가 직접 배정) + 학급 달력 + 화면 설정(테마 12가지·글꼴 8가지, 기기별).
+- 학급 포털 웹앱. 기획서: 우리 반 학급 포털 PRD (claude.ai 문서). 화면에 쓰는 말: **바로가기**(예전 ‘링크’), **미션**(예전 ‘과제’). 기능 = 로그인(관리자·교사·학생) + 바로가기·지금 열기 + 미션(날짜별, 완료 체크 줄 따로) + 공지 + TV 화면 + 교실 화면(판서·타이머·번호 뽑기·지각생 하교 타이머) + 나이스 급식·학사일정(시간표는 뺌) + 1인1역(주마다 교사가 직접 배정) + 학급 달력 + 화면 설정(테마 12가지·글꼴 8가지, 기기별).
 - 디자인: 기본은 ‘솜사탕 파스텔’ 테마 + 고운돋움 글꼴(시안 6장 중 A-1 선택). 교사 ‘화면 설정’ · 학생 ‘나’에서 기기마다 테마·글꼴을 바꿀 수 있음(`src/ui/skins.ts`). 교실 화면 기본 테마도 ‘솜사탕’(칠판·검정·흰색도 고를 수 있음). TV(`#tv`)는 늘 어두운 화면(자두색).
 - React 19 + TypeScript + Vite 6 + Tailwind 4, PWA(`public/sw.js`, `manifest.webmanifest`). 서버는 Firebase Spark(Firestore 서울 + 익명 로그인). Functions·Storage 쓰지 않음.
 - Firebase 프로젝트 `uriban-portal`(계정 dakkorae), 배포 주소 https://uriban-portal.web.app 와 Vercel https://potal-sand.vercel.app (GitHub `main` 에 올리면 Vercel이 자동 배포). 저장소 `dakkorae/class-portal` 의 `main` (예전 이름 `potal` 에서 바뀜. 작업이 끝나면 `main` 에 바로 커밋·푸시).
@@ -23,10 +23,10 @@
 | `src/lib/neis.ts` · `src/ui/school.tsx` | 나이스 호출(학교 찾기·급식·학사일정, 브라우저에서 바로, 6시간 기억) · 오늘 급식 카드. 시간표는 사용자 요청으로 뺌 |
 | `src/lib/roles.ts` | 1인1역: `mondayOf`, `weekOf(doc, 월요일)` → {역할ID: sid[]}, `rolesOfStudent` (자동 순환 없음, 교사가 주마다 배정) |
 | `src/ui/skins.ts` · `src/ui/ThemePicker.tsx` | 테마 12가지(동화 3·모던 3·색깔 6)와 글꼴 8가지. `applyAppearance` 가 `<html>` 에 색 토큰·모서리·그림자·버튼 모양 변수를 넣음. 글꼴은 고른 것만 내려받음(동적 import). 기본 글꼴 고운돋움은 늘 포함 |
-| `src/ui/DateNav.tsx` | 날짜 이동(‹ 날짜 › · 달력 팝업 · 오늘로). 미션은 교사·학생 모두 이것으로 날짜별로 봄 |
+| `src/ui/DateNav.tsx` | 날짜 이동(‹ 날짜 › · 달력 팝업 · 오늘로). 미션은 교사·학생 모두 이것으로 날짜별로 봄. 학생 홈의 급식 카드도 고른 날짜를 따라감(`SchoolToday day`) |
 | `src/ui/tiles.ts` · `index.css .tile3d` | 바로가기 3D 타일 아이콘. 분류 11개(국어·수학·사회·과학·영어·도덕·체육·음악·미술·실과·기타) × 그림 16개, 분류 색 |
 | `src/ui/calendar.tsx` | 달력 칸(MonthGrid), 일정 펼치기 |
-| `src/board/BoardApp.tsx` | 교실 화면: 미션 크게(완료 인원) · 판서(펜·지우개·되돌리기) · 타이머 · 번호 뽑기 · 1인1역, 칠판/검정/흰색 테마 |
+| `src/board/BoardApp.tsx` · `LateTimer.tsx` | 교실 화면(‘TV 화면 열기’): 미션 크게(완료 인원) · 판서(펜·지우개·되돌리기) · 타이머 · 번호 뽑기 · 지각생 하교 타이머(사용자가 준 HTML을 React로 옮겨 교실 화면 테마 색 `--b-*` 에 맞춤, 종소리는 Web Audio 도·미·솔 5번, 서버 저장 없음), 솜사탕/칠판/검정/흰색 테마. 1인1역은 교실 화면에서 뺌 |
 | `src/student/*` | JoinFlow(코드→번호→PIN→이름), StudentPortal(홈·링크·공지·나), PinPad |
 | `src/teacher/*` | TeacherApp(열기·개설·재설정·기록 안내), Workspace(메뉴·가림 모드), data.ts(실시간 구독 + `syncLive`), Dashboard, LinksPanel(바로가기), MissionsPanel(미션 카드·완료 현황표(보기 전용)·편집기·템플릿), NoticesPanel, RolesPanel, CalendarPanel, ClassPanel(명단 일괄 저장·학교 설정·TV 주소·CSV·삭제) |
 | `src/admin/AdminApp.tsx` · `src/tv/TvApp.tsx` | 관리자 / TV |
@@ -77,6 +77,8 @@ npx firebase emulators:exec --only firestore --project demo-portal "node rules-t
 10. (11/26 저녁) 디자인 시안 6장(`mock.html` 로 그린 학생 휴대폰 홈 + 교사 대시보드)을 보여 드리고, 사용자가 **A-1 솜사탕 파스텔** 선택 → 앱 전체에 적용(Pretendard 대신 고운돋움, 색·모서리·버튼·진행 막대·배경, 교실 화면 ‘솜사탕’ 테마 기본값, 앱 아이콘 색 theme-color #f7b6d2).
 
 11. (11/26 밤) 요청 반영: 시간표 삭제 · 미션 날짜별 보기(DateNav, 지난 미션은 오늘 화면에 안 나옴, 기간별 보기 삭제) · 바로가기 분류 11개(영어·체육·음악 추가)와 아이콘 · 화면 설정(테마 12·글꼴 8, 교사 ‘화면 설정’/학생 ‘나’) · 1인1역 자동 순환 → 주마다 직접 배정(지난주 배정 가져오기·비우기·역할 전체 삭제) · 대시보드에서 ‘미션 남은 체크’·‘참여한 학생’ 삭제 · 학생 이름 바꾸기 삭제(규칙도) · TV 화면 열기 크롬 문제 수정(`openBoard` 가 새 창을 연 직후 `location.hash` 를 다시 바꿔 크롬에서 빈 창이 되던 것 → 바꾸지 않음, 팝업이 막히면 링크 누르기로 새 탭). 규칙 134가지 통과·배포, 실제 서버 시험 후 시험 자료 지움.
+
+12. (11/26 밤) 학생 홈 날짜 이동 시 그날 급식 · 교실 화면에서 1인1역 빼기 · 지각생 하교 타이머 추가(학생 추가→일괄/개별 시작→종소리 5초→‘확인 완료(하교)’, 다른 메뉴로 가도 계속 잼, 머리글에 진행 인원 표시).
 
 ## 작업 환경 메모 (클라우드 세션)
 - 이 저장소 전용 클라우드 환경 `class-portal`(Firebase 주소들 + `open.neis.go.kr` 허용). `web.app`·`vercel.app` 주소와 글꼴 CDN은 열리지 않음 → 실제 서버 시험은 `npm run build` 후 `dist` 를 `python3 -m http.server` 로 띄워 Playwright로(서버는 진짜 Firebase에 연결됨). Playwright 는 `chromium.launch({ proxy: { server: process.env.HTTPS_PROXY, bypass: 'localhost,127.0.0.1' } })` + `ignoreHTTPSErrors` 로 띄워야 나이스·Firebase 에 닿음.
