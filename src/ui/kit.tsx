@@ -9,17 +9,17 @@ export { cx };
 type BtnVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'soft';
 type BtnSize = 'sm' | 'md' | 'lg' | 'xl';
 const variants: Record<BtnVariant, string> = {
-  primary: 'bg-brand text-on-brand hover:bg-brand-hover shadow-sm shadow-brand/20',
+  primary: 'bg-brand-gradient text-on-brand hover:brightness-105 shadow-md shadow-brand/25',
   secondary: 'bg-surface text-ink border border-line-strong hover:bg-surface-2',
   ghost: 'text-ink-2 hover:bg-surface-2 hover:text-ink',
   danger: 'bg-bad-soft text-bad hover:brightness-95 border border-transparent',
   soft: 'bg-brand-soft text-brand-strong hover:brightness-[0.97]'
 };
 const sizes: Record<BtnSize, string> = {
-  sm: 'h-9 px-3 text-sm rounded-lg gap-1.5',
-  md: 'h-11 px-4 text-[15px] rounded-xl gap-2',
-  lg: 'h-12 px-5 text-base rounded-xl gap-2',
-  xl: 'h-14 px-6 text-lg rounded-2xl gap-2.5'
+  sm: 'h-9 px-3.5 text-sm rounded-full gap-1.5',
+  md: 'h-11 px-5 text-[15px] rounded-full gap-2',
+  lg: 'h-12 px-6 text-base rounded-full gap-2',
+  xl: 'h-14 px-7 text-lg rounded-full gap-2.5'
 };
 
 export function Button({
@@ -65,7 +65,7 @@ export function IconButton({ label, className, children, ...rest }: React.Button
 
 export function Card({ className, children, ...rest }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div {...rest} className={cx('bg-surface border border-line rounded-2xl shadow-card', className)}>
+    <div {...rest} className={cx('bg-surface border-2 border-line rounded-2xl shadow-card', className)}>
       {children}
     </div>
   );
@@ -269,7 +269,7 @@ export function Progress({ value, max, tone = 'brand', label }: { value: number;
   const pct = max ? Math.round((Math.min(value, max) / max) * 100) : 0;
   return (
     <div className="h-2 rounded-full bg-surface-2 overflow-hidden" role="progressbar" aria-valuenow={value} aria-valuemin={0} aria-valuemax={max} aria-label={label}>
-      <div className={cx('h-full rounded-full transition-[width] duration-500', tone === 'ok' ? 'bg-ok' : 'bg-brand')} style={{ width: `${pct}%` }} />
+      <div className={cx('h-full rounded-full transition-[width] duration-500', tone === 'ok' ? 'bg-ok' : 'bg-rainbow')} style={{ width: `${pct}%` }} />
     </div>
   );
 }

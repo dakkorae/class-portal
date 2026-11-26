@@ -62,7 +62,7 @@ export default function Workspace({
 
   return (
     <DataContext.Provider value={data}>
-      <div className={cx('min-h-dvh bg-canvas md:flex', privacy && 'privacy')}>
+      <div className={cx('min-h-dvh bg-aurora md:flex', privacy && 'privacy')}>
         {/* 넓은 화면: 왼쪽 메뉴 */}
         <aside className="hidden md:flex md:flex-col w-64 shrink-0 h-dvh sticky top-0 border-r border-line bg-surface/60 backdrop-blur px-3 py-4">
           <ClassSwitcher name={name} classId={classId} saved={savedClasses} open={menu} setOpen={setMenu} onSwitch={onSwitch} onClose={onClose} />

@@ -1,9 +1,8 @@
-@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css");
 @import "tailwindcss";
 
 /* 화면 색은 모두 이름 붙은 색(토큰)으로 씀 → 밝은 화면·어두운 화면이 자동으로 바뀜 */
 @theme {
-  --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Segoe UI", Roboto, sans-serif;
+  --font-sans: "Gowun Dodum", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
 
   --color-canvas: var(--c-canvas);
@@ -26,75 +25,82 @@
   --color-bad: var(--c-bad);
   --color-bad-soft: var(--c-bad-soft);
 
-  --shadow-card: 0 1px 2px rgb(15 18 34 / 0.04), 0 4px 16px -4px rgb(15 18 34 / 0.06);
-  --shadow-pop: 0 12px 40px -8px rgb(15 18 34 / 0.25);
+  --shadow-card: 0 2px 4px rgb(214 140 190 / 0.06), 0 10px 24px -12px rgb(214 140 190 / 0.38);
+  --shadow-pop: 0 18px 44px -12px rgb(170 100 170 / 0.38);
+
+  /* 솜사탕 파스텔: 모서리를 더 동글동글하게 */
+  --radius-md: 0.6rem;
+  --radius-lg: 0.85rem;
+  --radius-xl: 1.15rem;
+  --radius-2xl: 1.6rem;
+  --radius-3xl: 2rem;
 }
 
 :root {
   color-scheme: light;
-  --c-canvas: #f5f6fa;
+  --c-canvas: #fff7fb;
   --c-surface: #ffffff;
-  --c-surface-2: #f0f2f8;
-  --c-ink: #0e1120;
-  --c-ink-2: #383d52;
-  --c-ink-3: #62677d;
-  --c-line: #e3e6ef;
-  --c-line-strong: #cdd2df;
-  --c-brand: #4f46e5;
-  --c-brand-hover: #4338ca;
-  --c-brand-strong: #4338ca;
-  --c-brand-soft: #eef0ff;
-  --c-ok: #047857;
-  --c-ok-soft: #e4f6ee;
-  --c-warn: #a14a05;
-  --c-warn-soft: #fff3dd;
-  --c-bad: #be123c;
-  --c-bad-soft: #ffe9ee;
+  --c-surface-2: #fcf1f7;
+  --c-ink: #4e3e5e;
+  --c-ink-2: #6a5a7d;
+  --c-ink-3: #8b7a9c;
+  --c-line: #f6e3ee;
+  --c-line-strong: #ebd3e3;
+  --c-brand: #df5f9f;
+  --c-brand-hover: #cf4f8f;
+  --c-brand-strong: #c4458a;
+  --c-brand-soft: #ffe8f3;
+  --c-ok: #2f9e6c;
+  --c-ok-soft: #e4f8ec;
+  --c-warn: #b97508;
+  --c-warn-soft: #fff4d9;
+  --c-bad: #d9466e;
+  --c-bad-soft: #ffe7ee;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --c-canvas: #0a0c15;
-    --c-surface: #131624;
-    --c-surface-2: #1a1e30;
-    --c-ink: #f1f2f8;
-    --c-ink-2: #c3c6d8;
-    --c-ink-3: #9297ae;
-    --c-line: #262a40;
-    --c-line-strong: #353a55;
-    --c-brand: #5254e6;
-    --c-brand-hover: #6264f0;
-    --c-brand-strong: #a9adff;
-    --c-brand-soft: #1f2247;
-    --c-ok: #4ade9a;
-    --c-ok-soft: #0f2a20;
-    --c-warn: #fbbf5a;
-    --c-warn-soft: #2d2110;
-    --c-bad: #ff7a96;
-    --c-bad-soft: #33141d;
+    --c-canvas: #1d1627;
+    --c-surface: #271e33;
+    --c-surface-2: #30253f;
+    --c-ink: #fcf0fa;
+    --c-ink-2: #e0cfe8;
+    --c-ink-3: #b7a5c8;
+    --c-line: #3b2f4d;
+    --c-line-strong: #4d3e63;
+    --c-brand: #e46aa6;
+    --c-brand-hover: #ee7bb3;
+    --c-brand-strong: #ffb0d6;
+    --c-brand-soft: #43264a;
+    --c-ok: #7fe0ad;
+    --c-ok-soft: #173326;
+    --c-warn: #ffd27a;
+    --c-warn-soft: #3a2c14;
+    --c-bad: #ff8fab;
+    --c-bad-soft: #3d1b28;
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --c-canvas: #0a0c15;
-  --c-surface: #131624;
-  --c-surface-2: #1a1e30;
-  --c-ink: #f1f2f8;
-  --c-ink-2: #c3c6d8;
-  --c-ink-3: #9297ae;
-  --c-line: #262a40;
-  --c-line-strong: #353a55;
-  --c-brand: #5254e6;
-  --c-brand-hover: #6264f0;
-  --c-brand-strong: #a9adff;
-  --c-brand-soft: #1f2247;
-  --c-ok: #4ade9a;
-  --c-ok-soft: #0f2a20;
-  --c-warn: #fbbf5a;
-  --c-warn-soft: #2d2110;
-  --c-bad: #ff7a96;
-  --c-bad-soft: #33141d;
+  --c-canvas: #1d1627;
+  --c-surface: #271e33;
+  --c-surface-2: #30253f;
+  --c-ink: #fcf0fa;
+  --c-ink-2: #e0cfe8;
+  --c-ink-3: #b7a5c8;
+  --c-line: #3b2f4d;
+  --c-line-strong: #4d3e63;
+  --c-brand: #e46aa6;
+  --c-brand-hover: #ee7bb3;
+  --c-brand-strong: #ffb0d6;
+  --c-brand-soft: #43264a;
+  --c-ok: #7fe0ad;
+  --c-ok-soft: #173326;
+  --c-warn: #ffd27a;
+  --c-warn-soft: #3a2c14;
+  --c-bad: #ff8fab;
+  --c-bad-soft: #3d1b28;
 }
 
 html {
@@ -116,15 +122,23 @@ body {
   outline-offset: 2px;
 }
 
-/* 배경 장식: 은은한 빛 번짐 */
+/* 배경 장식: 솜사탕 무지개 파스텔 */
 .bg-aurora {
   background:
-    radial-gradient(60rem 30rem at 10% -10%, color-mix(in oklab, var(--c-brand) 16%, transparent), transparent 70%),
-    radial-gradient(40rem 24rem at 100% 0%, color-mix(in oklab, #a855f7 12%, transparent), transparent 70%),
+    radial-gradient(42rem 26rem at 0% 0%, color-mix(in oklab, #ffb3d1 38%, transparent), transparent 70%),
+    radial-gradient(36rem 24rem at 55% -10%, color-mix(in oklab, #ffe3a3 34%, transparent), transparent 70%),
+    radial-gradient(40rem 26rem at 100% 10%, color-mix(in oklab, #bfe6ff 40%, transparent), transparent 70%),
+    radial-gradient(44rem 30rem at 85% 100%, color-mix(in oklab, #d9c7ff 34%, transparent), transparent 70%),
+    radial-gradient(40rem 28rem at 10% 100%, color-mix(in oklab, #c9f2d6 34%, transparent), transparent 70%),
     var(--c-canvas);
+  background-attachment: fixed;
 }
 .bg-brand-gradient {
-  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 55%, #c026d3 100%);
+  background: linear-gradient(135deg, #ff9ec4 0%, #e48bd6 50%, #b79bff 100%);
+}
+/* 무지개 띠 (진행 막대 등) */
+.bg-rainbow {
+  background: linear-gradient(90deg, #ff9ec4, #ffc98a, #ffe27a, #8fe0b0, #8ec9ff, #c9a7ff);
 }
 
 .scrollbar-none::-webkit-scrollbar {
@@ -150,7 +164,7 @@ body {
 @keyframes glow {
   0%,
   100% {
-    box-shadow: 0 0 0 0 color-mix(in oklab, #7c3aed 45%, transparent);
+    box-shadow: 0 0 0 0 color-mix(in oklab, #e48bd6 50%, transparent);
   }
   50% {
     box-shadow: 0 0 0 10px transparent;

@@ -10,15 +10,17 @@ import { cx } from '../ui/kit';
 // 교실 화면 (교사 기기에서 새 창으로 엶): 미션을 크게 보여 주고, 판서·타이머·번호 뽑기·1인1역을 함께 씀
 // 주소: #board/학급코드/미션ID(선택)
 type Mode = 'mission' | 'timer' | 'picker' | 'roles';
-type Theme = 'chalk' | 'dark' | 'white';
+type Theme = 'pastel' | 'chalk' | 'dark' | 'white';
 type Stroke = { color: string; width: number; erase: boolean; pts: [number, number][] };
 
 const THEMES: Record<Theme, { label: string; vars: Record<string, string> }> = {
+  pastel: { label: '솜사탕', vars: { '--b-bg': '#fff6fb', '--b-ink': '#4e3e5e', '--b-ink2': '#7d6c90', '--b-accent': '#df5f9f', '--b-panel': '#fbe9f3', '--b-line': '#f3d9e8', '--b-ok': '#2f9e6c' } },
   chalk: { label: '칠판', vars: { '--b-bg': '#1c3a2e', '--b-ink': '#f6f3ea', '--b-ink2': 'rgba(246,243,234,0.72)', '--b-accent': '#ffd75e', '--b-panel': 'rgba(255,255,255,0.07)', '--b-line': 'rgba(255,255,255,0.16)', '--b-ok': '#7ee2a8' } },
   dark: { label: '검정', vars: { '--b-bg': '#0b0d16', '--b-ink': '#f1f2f8', '--b-ink2': 'rgba(241,242,248,0.68)', '--b-accent': '#a9adff', '--b-panel': 'rgba(255,255,255,0.06)', '--b-line': 'rgba(255,255,255,0.14)', '--b-ok': '#4ade9a' } },
   white: { label: '흰색', vars: { '--b-bg': '#ffffff', '--b-ink': '#111427', '--b-ink2': '#4b5065', '--b-accent': '#4f46e5', '--b-panel': '#f2f4f9', '--b-line': '#dfe3ee', '--b-ok': '#047857' } }
 };
 const PENS: Record<Theme, string[]> = {
+  pastel: ['#4e3e5e', '#ff5fa2', '#4ea8ff', '#2fbf7f', '#ffb020'],
   chalk: ['#ffffff', '#ffd75e', '#ff8fa3', '#7cc8ff', '#9ef0a8'],
   dark: ['#ffffff', '#ffd75e', '#ff7a96', '#7cc8ff', '#4ade9a'],
   white: ['#111427', '#e11d48', '#2563eb', '#059669', '#f59e0b']
@@ -34,7 +36,7 @@ export default function BoardApp({ classId, missionId }: { classId: string; miss
   const [roles, setRoles] = useState<RolesDoc | null>(null);
   const [maxStudents, setMax] = useState(30);
   const [mode, setMode] = useState<Mode>('mission');
-  const [theme, setTheme] = useState<Theme>(() => loadPref<Theme>('board_theme', 'chalk'));
+  const [theme, setTheme] = useState<Theme>(() => loadPref<Theme>('board_theme', 'pastel'));
   const [scale, setScale] = useState(() => loadPref('board_scale', 1));
   const [showCount, setShowCount] = useState(() => loadPref('board_count', true));
   const [showNames, setShowNames] = useState(false);

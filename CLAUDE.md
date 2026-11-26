@@ -4,6 +4,7 @@
 
 ## 한눈에
 - 학급 포털 웹앱. 기획서: 우리 반 학급 포털 PRD (claude.ai 문서). 화면에 쓰는 말: **바로가기**(예전 ‘링크’), **미션**(예전 ‘과제’). 기능 = 로그인(관리자·교사·학생) + 바로가기·지금 열기 + 미션(완료 체크 줄 따로) + 공지 + TV 화면 + 교실 화면(판서·타이머·번호 뽑기) + 나이스 급식·시간표·학사일정 + 1인1역 + 학급 달력.
+- 디자인: ‘솜사탕 파스텔’ 테마 + 고운돋움 글꼴. 시안 6장(무지개 동화 A-1~3, 무채색 모던 B-1~3) 중 A-1 선택. 교실 화면 기본 테마도 ‘솜사탕’(칠판·검정·흰색도 고를 수 있음). TV(`#tv`)는 늘 어두운 화면(자두색).
 - React 19 + TypeScript + Vite 6 + Tailwind 4, PWA(`public/sw.js`, `manifest.webmanifest`). 서버는 Firebase Spark(Firestore 서울 + 익명 로그인). Functions·Storage 쓰지 않음.
 - Firebase 프로젝트 `uriban-portal`(계정 dakkorae), 배포 주소 https://uriban-portal.web.app 와 Vercel https://potal-sand.vercel.app (GitHub `main` 에 올리면 Vercel이 자동 배포). 저장소 `dakkorae/class-portal` 의 `main` (예전 이름 `potal` 에서 바뀜. 작업이 끝나면 `main` 에 바로 커밋·푸시).
 - 배포: Vercel은 푸시만 하면 자동. Firebase Hosting·규칙은 `npm run build && npx firebase-tools deploy --only firestore:rules,auth,hosting` (규칙을 바꾸면 이 명령으로 같이 올라감).
@@ -27,7 +28,8 @@
 | `src/student/*` | JoinFlow(코드→번호→PIN→이름), StudentPortal(홈·링크·공지·나), PinPad |
 | `src/teacher/*` | TeacherApp(열기·개설·재설정·기록 안내), Workspace(메뉴·가림 모드), data.ts(실시간 구독 + `syncLive`), Dashboard, LinksPanel(바로가기), MissionsPanel(미션 카드·완료 현황표(보기 전용)·편집기·템플릿), NoticesPanel, RolesPanel, CalendarPanel, ClassPanel(명단 일괄 저장·학교 설정·TV 주소·CSV·삭제) |
 | `src/admin/AdminApp.tsx` · `src/tv/TvApp.tsx` | 관리자 / TV |
-| `src/ui/kit.tsx` | 버튼·카드·입력·모달·토스트 등. 색은 이름 붙은 토큰(`bg-surface`, `text-ink-3`, `bg-brand` …)만 씀 → 어두운 화면 자동 |
+| `src/ui/kit.tsx` | 버튼(둥근 알약 모양, 주 버튼은 분홍→보라 그라데이션)·카드(2px 분홍 테두리)·입력·모달·토스트 등. 색은 이름 붙은 토큰(`bg-surface`, `text-ink-3`, `bg-brand` …)만 씀 → 어두운 화면 자동 |
+| `src/index.css` | **디자인 테마 ‘솜사탕 파스텔’**(사용자가 시안 A-1 선택): 글꼴 고운돋움(`@fontsource/gowun-dodum`, 앱에 함께 묶어 배포), `:root` 색 토큰(분홍 brand #df5f9f, 글자 보라빛 #4e3e5e), 어두운 화면은 짙은 자두색, 모서리 반경 키움(`--radius-*`), `.bg-aurora`(무지개 파스텔 번짐), `.bg-brand-gradient`, `.bg-rainbow`(진행 막대) |
 | `firestore.rules` · `scripts/rules-test.mjs` | 보안 규칙 · 자동 시험(134가지) |
 
 ## 서버 자료 (`classes/{학급코드}/…`)
@@ -69,6 +71,8 @@ npx firebase emulators:exec --only firestore --project demo-portal "node rules-t
 8. 사용자가 Vercel 계정에 GitHub 저장소를 직접 연결 → https://potal-sand.vercel.app (`vercel.json` 그대로, 환경 변수 없음). 두 주소 모두 같은 Firebase 자료를 쓰지만 기기 로그인 정보는 주소마다 따로라 학생 안내 주소는 하나로.
 
 9. (11/26 오후) 사용자 요청 10가지 반영: ‘링크’→‘바로가기’, ‘과제’→‘미션’, 명단 일괄 저장, 바로가기 3D 타일 아이콘·분류(전체/국어/수학/사회/과학/도덕/미술/실과/기타, 예전 분류는 기타로), 공지 읽어 주기 삭제, 교사 확인 기능 삭제(현황만), 미션에 완료 체크 줄 따로 고르기(붙여넣기 `(체크)`·들여쓰기 지원), ‘TV 화면 열기’ = 새 창 교실 화면(미션 크게·판서). 2차까지: 나이스 급식·시간표·학사일정(학급 관리 → 우리 학교, 인증키 없으면 시간표 5교시까지), 타이머·번호 뽑기(교실 화면), 1인1역 주간 순환, 학급 달력. 규칙 134가지 통과·배포, 휴대폰 360/414·태블릿 768/1024·크롬북 1366·PC 1920에서 가로 넘침 없음 확인, 실제 서버 시험 후 시험 학급·시험 개설 코드(TEST-E2E2) 지움.
+
+10. (11/26 저녁) 디자인 시안 6장(`mock.html` 로 그린 학생 휴대폰 홈 + 교사 대시보드)을 보여 드리고, 사용자가 **A-1 솜사탕 파스텔** 선택 → 앱 전체에 적용(Pretendard 대신 고운돋움, 색·모서리·버튼·진행 막대·배경, 교실 화면 ‘솜사탕’ 테마 기본값, 앱 아이콘 색 theme-color #f7b6d2).
 
 ## 작업 환경 메모 (클라우드 세션)
 - 이 저장소 전용 클라우드 환경 `class-portal`(Firebase 주소들 + `open.neis.go.kr` 허용). `web.app`·`vercel.app` 주소와 글꼴 CDN은 열리지 않음 → 실제 서버 시험은 `npm run build` 후 `dist` 를 `python3 -m http.server` 로 띄워 Playwright로(서버는 진짜 Firebase에 연결됨). Playwright 는 `chromium.launch({ proxy: { server: process.env.HTTPS_PROXY, bypass: 'localhost,127.0.0.1' } })` + `ignoreHTTPSErrors` 로 띄워야 나이스·Firebase 에 닿음.
