@@ -43,7 +43,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 학급 문서 `{name, inviteCode, createdAt, maxStudents, refs}`(교사·관리자만 읽음) · `public/roster {name, maxStudents, claimed}`(누구나: 입장 화면) · `public/live {now, notices(요약), tasks(미션 요약: title·due·total·items·targets), checks{완료칸:true}, done{완료칸:인원}}`(학생·TV·교사) · `public/links {items}` · `public/school`(나이스 학교·학년·반·인증키) · `public/roles {items, weeks:{월요일:{역할ID:[sid]}}}` · `public/calendar {items}` · `tasks/{id} {title, notice(공지 글), items:[{id,text,check,sub,targets?}], due(=날짜), targets(예전 자료용, 새로는 null), linkUrl}` · `notices/{id}`(그림 data URL 포함, 학생은 게시 시각 지난 것만) · `status/{sid} {tasks:{미션ID_줄ID:{state,at}}, reads, last}` · `students/{sid}`(본인·교사) · `pins/{sid}`·`secrets/teacher·reset`(읽기 불가) · `secrets/tv`(교사) · `teachers|members|screens/{기기}` · `private/templates`. 최상위 `config/admin`, `admins`, `inviteCodes`.
 
 ## 원칙
-- `README.md` 는 예전 기능(공지·시간표·`#tv`) 기준이라 오래됨 → 이 파일과 코드를 믿을 것.
 - 학생 이름은 **교사만 바꿈**(학생은 처음 참여 때 교사가 넣은 이름을 확인만, 교사가 비워 둔 번호만 한 번 직접 씀 — 규칙이 막음). 학생 이름은 본인·교사만 봄. TV·로그인 번호 버튼에는 이름 없음. 교사 화면 가림 모드(`.privacy .pii` 흐림).
 - 완료 칸 이름은 `미션ID_줄ID`(`markKey`). 학생은 자기 기록의 칸 하나만 done/todo 로 바꾸고, `public/live.done` 을 그 칸만 ±1 (`checks` 에 있는 칸만). 선생님은 현황을 **보기만**(확인·다시 해요 없음). 교사 화면이 열려 있으면 `syncLive` 가 요약·칸 목록·인원수를 실제 기록으로 바로잡음.
 - 줄마다 대상 학생(`MissionItem.targets`, `itemFor`). 학생 화면은 `itemsFor` 로 자기 줄만, 진행은 `progressOf(t, st, sid)`. 학생 홈은 그날 공지 글을 먼저, 그다음 ‘해야 할 일’.
