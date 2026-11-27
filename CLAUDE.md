@@ -94,6 +94,8 @@ npx firebase emulators:exec --only firestore --project demo-portal "node rules-t
 
 14. (11/27) 공지·미션 글 꾸미기(굵게·밑줄·글자색 5가지·형광펜·꾸미기 지우기, 편집기 미리보기, 학생·교사·교실 화면 모두 반영) · 바로가기 분류에 UOI(맨 앞)·게임(기타 앞) 추가와 각 16개 그림·타일 색.
 
+15. (11/27) 대시보드 ‘지금 열기’ 버튼이 많으면 오른쪽이 잘리던 것 → 줄을 바꿔 모두 보이게(4줄 넘으면 칸 안에서 위아래로 넘김, 긴 이름은 말줄임).
+
 ## 작업 환경 메모 (클라우드 세션)
 - 이 저장소 전용 클라우드 환경 `class-portal`(Firebase 주소들 + `open.neis.go.kr` 허용). `web.app`·`vercel.app` 주소와 글꼴 CDN은 열리지 않음 → 실제 서버 시험은 `npm run build` 후 `dist` 를 `python3 -m http.server` 로 띄워 Playwright로(서버는 진짜 Firebase에 연결됨). Playwright 는 `chromium.launch({ proxy: { server: process.env.HTTPS_PROXY, bypass: 'localhost,127.0.0.1' } })` + `ignoreHTTPSErrors` 로 띄워야 나이스·Firebase 에 닿음.
 - 시험용 개설 코드는 소유자 토큰 REST 로 `inviteCodes/TEST-…` 를 만들고, 끝나면 지움. **사용자의 학급(MYEQZ6)·개설 코드(N35Q-RJ8W)는 건드리지 않음.**

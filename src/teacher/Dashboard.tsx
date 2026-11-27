@@ -130,17 +130,17 @@ export function NowSender() {
         </div>
       )}
       {links.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1 -mx-1 px-1">
+        <div className="flex flex-wrap gap-2 max-h-[13rem] overflow-y-auto -mx-1 px-1 py-0.5">
           {links.map((l) => (
             <button
               key={l.id}
               type="button"
               disabled={busy}
               onClick={() => send({ title: l.title, url: l.url, icon: l.icon })}
-              className={cx('shrink-0 flex items-center gap-2 h-11 pl-1.5 pr-3.5 rounded-xl border bg-surface hover:border-brand hover:bg-brand-soft transition cursor-pointer', now?.url === l.url ? 'border-brand' : 'border-line')}
+              className={cx('max-w-full flex items-center gap-2 h-11 pl-1.5 pr-3.5 rounded-xl border bg-surface hover:border-brand hover:bg-brand-soft transition cursor-pointer', now?.url === l.url ? 'border-brand' : 'border-line')}
             >
               <LinkIcon url={l.url} icon={l.icon} category={l.category} size={32} />
-              <span className="text-sm font-semibold whitespace-nowrap">{l.title}</span>
+              <span className="text-sm font-semibold truncate">{l.title}</span>
               {l.pinned && <Badge tone="brand" className="h-5 px-1.5">고정</Badge>}
             </button>
           ))}
