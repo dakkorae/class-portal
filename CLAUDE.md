@@ -1,4 +1,8 @@
-# CLAUDE.md — 우리 반 포털 작업 안내서
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## 우리 반 포털 작업 안내서
 
 새 대화에서 이 파일만 읽으면 이어서 작업할 수 있도록 정리했습니다. 사용자(서성민 선생님)는 비개발자 → **설명은 쉬운 한국어로, 용어는 풀어서**.
 
@@ -18,7 +22,7 @@
 | `src/lib/firestoreStore.ts` · `localStore.ts` | 실제 서버 / 체험용(localStorage, BroadcastChannel로 다른 탭에 반영). **둘 다 같은 쓰기 의미**(set·set merge·점 경로 update) |
 | `src/lib/api.ts` | 모든 동작 (한 곳). 체험용은 규칙이 없으므로 비밀번호 확인을 `demoMatch` 로 대신 |
 | `src/lib/cloud.ts` | 서버 고르기(`cloudMode`), 기기 저장 키(`cp_` 로 시작), 초대·TV 주소 |
-| `src/lib/visible.ts` | 보이는 공지(예약·내림), 오늘의 지금 열기, 미션 대상 |
+| `src/lib/visible.ts` | 오늘의 지금 열기(`activeNow`), 게시물 대상(`isTarget`). 예전 공지용 `visibleNotices`·`noticeStatus` 는 화면에서 안 씀 |
 | `src/lib/mission.ts` | 미션 줄 붙여넣기 해석(`(체크)`·들여쓰기), 학생별 진행(`progressOf`) |
 | `src/lib/neis.ts` · `src/ui/school.tsx` | 나이스 호출(학교 찾기·급식·학사일정, 브라우저에서 바로, 6시간 기억) · 오늘 급식 카드. 시간표는 사용자 요청으로 뺌 |
 | `src/lib/roles.ts` | 1인1역: `mondayOf`, `weekOf(doc, 월요일)` → {역할ID: sid[]}, `rolesOfStudent` (자동 순환 없음, 교사가 주마다 배정) |
@@ -29,9 +33,8 @@
 | `src/ui/calendar.tsx` | 달력 칸(MonthGrid), 일정 펼치기 |
 | `src/board/BoardApp.tsx` · `LateTimer.tsx` | 교실 화면(‘TV·편의기능’ 탭에서 엶): 공지·미션 크게(완료 인원) · 판서(키보드로 크게 쓰기 `WriteView` + 어느 화면에서나 펜·지우개·되돌리기) · 타이머 · 번호 뽑기 · 지각생 하교 타이머(사용자가 준 HTML을 React로 옮겨 교실 화면 테마 색 `--b-*` 에 맞춤, 종소리는 Web Audio 도·미·솔 5번, 서버 저장 없음), 솜사탕/칠판/검정/흰색 테마. 1인1역은 교실 화면에서 뺌 |
 | `src/student/*` | JoinFlow(코드→번호→PIN→이름), StudentPortal(홈[공지 및 미션·급식·일정]·바로가기·달력·나), PinPad |
-| `src/teacher/*` | TeacherApp(열기·개설·재설정·기록 안내), Workspace(메뉴·가림 모드), data.ts(실시간 구독 + `syncLive`), Dashboard, LinksPanel(바로가기), MissionsPanel(공지 및 미션: 카드·완료 현황표(보기 전용)·편집기(공지 글+미션 줄, 줄마다 대상 학생)·템플릿), TvToolsPanel, RolesPanel, CalendarPanel, ClassPanel(명단 일괄 저장·학교 설정·CSV·삭제) |
+| `src/teacher/*` | TeacherApp(열기·개설·재설정·기록 안내), Workspace(메뉴·가림 모드), data.ts(실시간 구독 + `syncLive`), Dashboard, LinksPanel(바로가기), MissionsPanel(공지 및 미션: 카드·완료 현황표(보기 전용)·편집기(공지 글+미션 줄, 줄마다 대상 학생)·템플릿), TvToolsPanel(‘TV·편의기능’ 탭: 모드별 ‘띄우기’ 카드), RolesPanel, CalendarPanel, ClassPanel(명단 일괄 저장·학교 설정·CSV·삭제) |
 | `src/admin/AdminApp.tsx` | 관리자 |
-| `src/teacher/TvToolsPanel.tsx` | ‘TV·편의기능’ 탭: 교실 화면 모드별 ‘띄우기’ 카드와 쓰는 법 |
 | `src/ui/kit.tsx` | 버튼(둥근 알약 모양, 주 버튼은 분홍→보라 그라데이션)·카드(2px 분홍 테두리)·입력·모달·토스트 등. 색은 이름 붙은 토큰(`bg-surface`, `text-ink-3`, `bg-brand` …)만 씀 → 어두운 화면 자동 |
 | `src/index.css` | **디자인 테마 ‘솜사탕 파스텔’**(사용자가 시안 A-1 선택): 글꼴 고운돋움(`@fontsource/gowun-dodum`, 앱에 함께 묶어 배포), `:root` 색 토큰(분홍 brand #df5f9f, 글자 보라빛 #4e3e5e), 어두운 화면은 짙은 자두색, 모서리 반경 키움(`--radius-*`), `.bg-aurora`(무지개 파스텔 번짐), `.bg-brand-gradient`, `.bg-rainbow`(진행 막대) |
 | `firestore.rules` · `scripts/rules-test.mjs` | 보안 규칙 · 자동 시험(134가지) |
@@ -40,6 +43,7 @@
 학급 문서 `{name, inviteCode, createdAt, maxStudents, refs}`(교사·관리자만 읽음) · `public/roster {name, maxStudents, claimed}`(누구나: 입장 화면) · `public/live {now, notices(요약), tasks(미션 요약: title·due·total·items·targets), checks{완료칸:true}, done{완료칸:인원}}`(학생·TV·교사) · `public/links {items}` · `public/school`(나이스 학교·학년·반·인증키) · `public/roles {items, weeks:{월요일:{역할ID:[sid]}}}` · `public/calendar {items}` · `tasks/{id} {title, notice(공지 글), items:[{id,text,check,sub,targets?}], due(=날짜), targets(예전 자료용, 새로는 null), linkUrl}` · `notices/{id}`(그림 data URL 포함, 학생은 게시 시각 지난 것만) · `status/{sid} {tasks:{미션ID_줄ID:{state,at}}, reads, last}` · `students/{sid}`(본인·교사) · `pins/{sid}`·`secrets/teacher·reset`(읽기 불가) · `secrets/tv`(교사) · `teachers|members|screens/{기기}` · `private/templates`. 최상위 `config/admin`, `admins`, `inviteCodes`.
 
 ## 원칙
+- `README.md` 는 예전 기능(공지·시간표·`#tv`) 기준이라 오래됨 → 이 파일과 코드를 믿을 것.
 - 학생 이름은 **교사만 바꿈**(학생은 처음 참여 때 교사가 넣은 이름을 확인만, 교사가 비워 둔 번호만 한 번 직접 씀 — 규칙이 막음). 학생 이름은 본인·교사만 봄. TV·로그인 번호 버튼에는 이름 없음. 교사 화면 가림 모드(`.privacy .pii` 흐림).
 - 완료 칸 이름은 `미션ID_줄ID`(`markKey`). 학생은 자기 기록의 칸 하나만 done/todo 로 바꾸고, `public/live.done` 을 그 칸만 ±1 (`checks` 에 있는 칸만). 선생님은 현황을 **보기만**(확인·다시 해요 없음). 교사 화면이 열려 있으면 `syncLive` 가 요약·칸 목록·인원수를 실제 기록으로 바로잡음.
 - 줄마다 대상 학생(`MissionItem.targets`, `itemFor`). 학생 화면은 `itemsFor` 로 자기 줄만, 진행은 `progressOf(t, st, sid)`. 학생 홈은 그날 공지 글을 먼저, 그다음 ‘해야 할 일’.
@@ -51,9 +55,12 @@
 - 규칙을 바꾸면 사용자에게 콘솔 게시(또는 `firebase deploy --only firestore:rules`)를 안내.
 
 ## 확인 방법
+자동 단위 시험은 없음. 확인 = 타입 검사 + 규칙 시험(아래) + 체험용 빌드를 Playwright로 눌러 보기.
 ```bash
 npm ci
-npx tsc --noEmit && npm run build
+npm run dev      # 개발 서버 :3000 (VITE_CLOUD_DEMO=1 을 붙이면 체험용 localStorage 서버)
+npm run lint     # = tsc --noEmit (eslint 없음)
+npm run build    # tsc + vite build → dist
 npm run build:demo && (cd dist-demo && python3 -m http.server 4173)   # 체험용: 개설 코드 DEMO-2026, 관리자 키 demo-admin
 ```
 규칙 시험(저장소 밖 임시 폴더):
