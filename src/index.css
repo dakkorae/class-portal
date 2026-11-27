@@ -318,3 +318,11 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .b-alarm { animation: none; }
 }
+
+/* 공지·미션 글 꾸미기 색 (밝은·어두운 화면 모두 읽히도록 글자색과 섞음) */
+.rt-red { color: color-mix(in srgb, #e5484d 78%, var(--b-ink, var(--c-ink))); }
+.rt-orange { color: color-mix(in srgb, #f76b15 78%, var(--b-ink, var(--c-ink))); }
+.rt-green { color: color-mix(in srgb, #2f9e6c 78%, var(--b-ink, var(--c-ink))); }
+.rt-blue { color: color-mix(in srgb, #1e7ae0 78%, var(--b-ink, var(--c-ink))); }
+.rt-purple { color: color-mix(in srgb, #8e4ec6 78%, var(--b-ink, var(--c-ink))); }
+.rt-mark { background: rgb(255 214 0 / 0.45); border-radius: 0.2em; padding: 0 0.12em; box-decoration-break: clone; -webkit-box-decoration-break: clone; }

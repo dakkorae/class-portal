@@ -6,6 +6,7 @@ import { dueLabel, formatLongToday, today } from '../lib/dates';
 import { LateView, useLateTimers } from './LateTimer';
 import { LiveDoc, Student, Task, markKey } from '../lib/types';
 import { cx } from '../ui/kit';
+import { Rich } from '../ui/RichText';
 
 // 교실 화면 (교사 기기에서 새 창으로 엶): 미션을 크게 보여 주고, 판서·타이머·번호 뽑기·지각생 하교 타이머를 함께 씀
 // 주소: #board/학급코드/미션ID(선택)
@@ -290,7 +291,7 @@ function MissionView({ task, index, count, live, total, showCount, onToggleCount
       {task.notice && (
         <div className="mt-[0.6em] rounded-[0.5em] b-panel border-2 b-line px-[0.7em] py-[0.5em]">
           <p className="text-[0.7em] font-bold b-accent mb-[0.15em]">📢 공지</p>
-          <p className="text-[1.35em] font-semibold leading-snug whitespace-pre-wrap break-words">{task.notice}</p>
+          <p className="text-[1.35em] font-semibold leading-snug whitespace-pre-wrap break-words"><Rich text={task.notice} /></p>
         </div>
       )}
       <ul className="mt-[0.8em] space-y-[0.45em]">
@@ -308,7 +309,7 @@ function MissionView({ task, index, count, live, total, showCount, onToggleCount
                 <span className={cx('shrink-0 rounded-full mt-[0.5em]', i.sub ? 'w-[0.3em] h-[0.3em] b-dot2' : 'w-[0.36em] h-[0.36em] b-dot')} aria-hidden />
               )}
               <span className="flex-1 min-w-0 font-semibold break-words">
-                {i.text}
+                <Rich text={i.text} />
                 {i.targets && <span className="ml-[0.4em] text-[0.55em] font-bold b-ink2 align-middle">({i.targets.length}명)</span>}
               </span>
               {i.check && showCount && (

@@ -104,9 +104,9 @@ export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttribute
   return <input ref={ref} {...rest} className={cx(inputCls, className)} />;
 });
 
-export function Textarea({ className, ...rest }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea {...rest} className={cx(inputCls, 'h-auto py-3 leading-relaxed resize-y', className)} />;
-}
+export const Textarea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttributes<HTMLTextAreaElement>>(function Textarea({ className, ...rest }, ref) {
+  return <textarea ref={ref} {...rest} className={cx(inputCls, 'h-auto py-3 leading-relaxed resize-y', className)} />;
+});
 
 export function Select({ className, children, ...rest }: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (

@@ -8,6 +8,7 @@ import { checkItems } from '../lib/types';
 import { Badge, Button, Card, Input, LinkIcon, Progress, SectionTitle, cx, isValidUrl, normalizeUrl, toast } from '../ui/kit';
 import { SchoolToday } from '../ui/school';
 import { useData } from './data';
+import { plainText } from '../ui/RichText';
 import type { Section } from './Workspace';
 
 export default function Dashboard({ go }: { go: (s: Section) => void }) {
@@ -61,7 +62,7 @@ export default function Dashboard({ go }: { go: (s: Section) => void }) {
                       {dueLabel(t.due)}
                     </span>
                   </div>
-                  {t.notice && <p className="text-sm text-ink-3 line-clamp-2 whitespace-pre-wrap mb-2">📢 {t.notice}</p>}
+                  {t.notice && <p className="text-sm text-ink-3 line-clamp-2 whitespace-pre-wrap mb-2">📢 {plainText(t.notice)}</p>}
                   {hasChecks ? <Progress value={done} max={total} tone={total && done >= total ? 'ok' : 'brand'} label={`${t.title} 모두 끝낸 학생`} /> : <p className="text-xs text-ink-3">완료 체크 없는 안내</p>}
                 </div>
               );

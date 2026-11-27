@@ -246,7 +246,7 @@ function LinkEditor({ initial, nextOrder, onClose }: { initial: Partial<LinkItem
             </button>
             {ICON_GROUPS[group as keyof typeof ICON_GROUPS].map((e) => (
               <button key={e} type="button" onClick={() => setIcon(e)} aria-pressed={icon === e} aria-label={`아이콘 ${e}`} className={cx('h-[52px] rounded-xl border-2 flex items-center justify-center cursor-pointer transition', icon === e ? 'border-brand bg-brand-soft' : 'border-transparent hover:bg-surface-2')}>
-                <LinkIcon url="" icon={e} size={38} />
+                <LinkIcon url="" icon={e} category={group} size={38} />
               </button>
             ))}
           </div>

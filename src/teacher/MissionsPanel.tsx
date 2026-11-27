@@ -9,6 +9,7 @@ import { isTarget } from '../lib/visible';
 import { MissionItem, Task, TaskTemplate, checkItems, itemFor, markKey } from '../lib/types';
 import { Badge, Button, Card, Empty, ErrorNote, Field, IconButton, Input, Modal, Progress, SectionTitle, Select, Switch, Textarea, cx, isValidUrl, normalizeUrl, toast } from '../ui/kit';
 import { useData } from './data';
+import { FormatBar, Rich, plainText } from '../ui/RichText';
 
 // 줄 하나를 할 학생 수 (미션 대상과 줄 대상이 모두 맞는 학생)
 const itemTotal = (t: Task, i: MissionItem, sids: string[]) => sids.filter((sid) => isTarget(t, sid) && itemFor(i, sid)).length;
@@ -96,7 +97,7 @@ function MissionCard({ task: t, onEdit }: { task: Task; onEdit: () => void }) {
           <p className="text-xs font-bold text-brand-strong flex items-center gap-1 mb-1">
             <Megaphone size={13} /> 공지
           </p>
-          <p className="text-[15px] text-ink-2 whitespace-pre-wrap break-words">{t.notice}</p>
+          <p className="text-[15px] text-ink-2 whitespace-pre-wrap break-words"><Rich text={t.notice} /></p>
         </div>
       )}
       <ul className="space-y-1.5">
@@ -107,7 +108,7 @@ function MissionCard({ task: t, onEdit }: { task: Task; onEdit: () => void }) {
             <li key={i.id} className={cx('flex items-start gap-2 text-[15px]', i.sub && 'pl-6')}>
               {i.check ? <SquareCheckBig size={18} className="text-brand-strong mt-0.5 shrink-0" aria-label="완료 체크" /> : <span className="w-[18px] text-center text-ink-3 shrink-0">•</span>}
               <span className="flex-1 min-w-0 break-words text-ink-2">
-                {i.text}
+                <Rich text={i.text} />
                 {i.targets && (
                   <span className="ml-1.5 inline-flex items-center gap-0.5 text-[11px] font-bold text-brand-strong bg-brand-soft rounded-full px-1.5 py-0.5 align-middle">
                     <Users size={11} /> {i.targets.length}명
@@ -172,8 +173,8 @@ function StatusBoard({ tasks, onlyTodo }: { tasks: Task[]; onlyTodo: boolean }) 
               {tasks.flatMap((t) =>
                 checkItems(t).map((i, n) => (
                   <th key={t.id + i.id} className={cx('sticky top-10 z-20 bg-surface border-b border-line px-1.5 py-1.5 text-xs font-semibold text-ink-2 min-w-20 max-w-32 align-bottom', n === 0 && 'border-l')}>
-                    <span className="line-clamp-2 leading-tight" title={i.text}>
-                      {i.text}
+                    <span className="line-clamp-2 leading-tight" title={plainText(i.text)}>
+                      {plainText(i.text)}
                     </span>
                     <span className="block text-ink-3 tabular-nums mt-0.5">{d.live.done[markKey(t.id, i.id)] ?? 0}명</span>
                   </th>
@@ -234,6 +235,9 @@ function MissionEditor({ initial, onClose }: { initial: Partial<Task>; onClose: 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const refs = useRef<Record<string, HTMLInputElement | null>>({});
+  // 꾸미기 막대가 감쌀 칸: 마지막으로 누른 공지 칸 또는 미션 줄
+  const lastField = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+  const noticeRef = useRef<HTMLTextAreaElement | null>(null);
 
   const patch = (id: string, p: Partial<MissionItem>) => setItems((list) => list.map((i) => (i.id === id ? { ...i, ...p } : i)));
   const addAfter = (idx: number, base?: MissionItem) => {
@@ -306,7 +310,13 @@ function MissionEditor({ initial, onClose }: { initial: Partial<Task>; onClose: 
         </>
       }
     >
-      <div className="space-y-5">
+      <div
+        className="space-y-5"
+        onFocusCapture={(e) => {
+          const el = e.target as HTMLElement;
+          if (el.dataset.rich) lastField.current = el as HTMLInputElement | HTMLTextAreaElement;
+        }}
+      >
         <div className="grid sm:grid-cols-[1fr_auto] gap-4">
           <Field label="제목">
             <Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={40} placeholder="예: 11월 27일 알림장" autoFocus={!initial.id} />
@@ -326,8 +336,18 @@ function MissionEditor({ initial, onClose }: { initial: Partial<Task>; onClose: 
           </Field>
         </div>
 
+        <div className="sticky -top-4 z-10 -mx-5 px-5 py-2 bg-surface border-b border-line shadow-sm">
+          <FormatBar
+            getTarget={() => lastField.current || noticeRef.current}
+            onApply={(el, value) => {
+              const id = el.dataset.rich;
+              if (id === 'notice') setNotice(value.slice(0, 2000));
+              else if (id) patch(id, { text: value.slice(0, 200) });
+            }}
+          />
+        </div>
         <Field label={<span className="flex items-center gap-1.5"><Megaphone size={15} className="text-brand-strong" /> 공지 (학생에게 안내할 내용, 선택)</span>}>
-          <Textarea value={notice} onChange={(e) => setNotice(e.target.value)} rows={4} maxLength={1500} placeholder={'예: 내일은 체육복을 입고 와요.\n준비물: 색연필, 가위'} />
+          <Textarea ref={noticeRef} data-rich="notice" value={notice} onChange={(e) => setNotice(e.target.value)} rows={4} maxLength={2000} placeholder={'예: 내일은 체육복을 입고 와요.\n준비물: 색연필, 가위'} />
         </Field>
 
         <div>
@@ -380,6 +400,7 @@ function MissionEditor({ initial, onClose }: { initial: Partial<Task>; onClose: 
                   ref={(el) => {
                     refs.current[it.id] = el;
                   }}
+                  data-rich={it.id}
                   value={it.text}
                   onChange={(e) => patch(it.id, { text: e.target.value })}
                   onKeyDown={(e) => {
@@ -401,7 +422,7 @@ function MissionEditor({ initial, onClose }: { initial: Partial<Task>; onClose: 
                     const parsed = parseLines(text);
                     setItems((list) => [...list.slice(0, idx), ...(it.text.trim() ? [it] : []), ...parsed, ...list.slice(idx + 1)]);
                   }}
-                  maxLength={120}
+                  maxLength={200}
                   placeholder={idx === 0 ? '예: 오늘 시간표 확인, 교과서 준비' : '할 일'}
                   aria-label={`${idx + 1}번째 줄`}
                   className="flex-1 min-w-0"
@@ -443,6 +464,27 @@ function MissionEditor({ initial, onClose }: { initial: Partial<Task>; onClose: 
             줄 추가
           </Button>
         </div>
+
+        {(notice.trim() || items.some((i) => i.text.trim())) && (
+          <div className="rounded-xl border border-dashed border-line-strong p-3.5">
+            <p className="text-xs font-bold text-ink-3 mb-2">학생에게 보이는 모습 (미리보기)</p>
+            {notice.trim() && (
+              <p className="text-[15px] leading-relaxed whitespace-pre-wrap break-words mb-2">
+                <Rich text={notice} />
+              </p>
+            )}
+            <ul className="space-y-1">
+              {items
+                .filter((i) => i.text.trim())
+                .map((i) => (
+                  <li key={i.id} className={cx('flex items-start gap-2 text-[15px]', i.sub && 'pl-6')}>
+                    {i.check ? <SquareCheckBig size={17} className="text-brand-strong mt-0.5 shrink-0" /> : <span className="w-[17px] text-center text-ink-3 shrink-0">•</span>}
+                    <Rich text={i.text} className="break-words min-w-0" />
+                  </li>
+                ))}
+            </ul>
+          </div>
+        )}
 
         <div className="grid sm:grid-cols-2 gap-4">
           <Field label="관련 바로가기 (선택)">

@@ -29,7 +29,7 @@ export interface Student {
 }
 
 // 바로가기 분류 (학생 화면에서는 맨 앞에 '전체'가 붙음)
-export const LINK_CATEGORIES = ['국어', '수학', '사회', '과학', '영어', '도덕', '체육', '음악', '미술', '실과', '기타'] as const;
+export const LINK_CATEGORIES = ['UOI', '국어', '수학', '사회', '과학', '영어', '도덕', '체육', '음악', '미술', '실과', '게임', '기타'] as const;
 // 예전 분류(예체능·도구·놀이 등)는 '기타'로 보여 줌
 export const linkCategory = (c: string) => ((LINK_CATEGORIES as readonly string[]).includes(c) ? c : '기타');
 

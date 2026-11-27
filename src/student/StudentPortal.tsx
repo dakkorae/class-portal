@@ -11,6 +11,7 @@ import { Badge, Button, Card, Empty, ErrorNote, LinkIcon, Progress, SectionTitle
 import { KIND_TONE, MonthGrid, itemsByDay, monthRange } from '../ui/calendar';
 import { SchoolToday, useSchoolSchedule } from '../ui/school';
 import DateNav from '../ui/DateNav';
+import { Rich } from '../ui/RichText';
 import { ThemeCard } from '../ui/ThemePicker';
 
 type Tab = 'home' | 'links' | 'calendar' | 'me';
@@ -217,7 +218,7 @@ export default function StudentPortal({ session, onSignedOut }: { session: Stude
                             <p className="text-sm font-bold text-brand-strong flex items-center gap-1.5 mb-1.5">
                               <Megaphone size={16} /> 공지 · {t.title}
                             </p>
-                            <p className="text-[17px] leading-relaxed text-ink whitespace-pre-wrap break-words">{t.notice}</p>
+                            <p className="text-[17px] leading-relaxed text-ink whitespace-pre-wrap break-words"><Rich text={t.notice} /></p>
                           </Card>
                         ))}
                       </div>
@@ -319,13 +320,13 @@ function MissionCard({ task, sid, status, onToggle }: { task: Task; sid: string;
                 )}
               >
                 <span className={cx('w-7 h-7 rounded-lg border-2 flex items-center justify-center shrink-0 transition', done ? 'bg-ok border-ok text-white' : 'border-line-strong bg-surface')}>{done && <Check size={18} strokeWidth={3.5} />}</span>
-                <span className={cx('flex-1 min-w-0 font-semibold leading-snug break-words', done ? 'text-ink-2 line-through decoration-ok/60 decoration-2' : 'text-ink')}>{i.text}</span>
+                <span className={cx('flex-1 min-w-0 font-semibold leading-snug break-words', done ? 'text-ink-2 line-through decoration-ok/60 decoration-2' : 'text-ink')}><Rich text={i.text} /></span>
               </button>
             </li>
           ) : (
             <li key={i.id} className={cx('flex items-start gap-2.5 px-1 text-[16px] text-ink-2 leading-snug', i.sub && 'pl-7')}>
               <span className="w-1.5 h-1.5 rounded-full bg-ink-3 mt-2.5 shrink-0" aria-hidden />
-              <span className="break-words min-w-0">{i.text}</span>
+              <span className="break-words min-w-0"><Rich text={i.text} /></span>
             </li>
           );
         })}

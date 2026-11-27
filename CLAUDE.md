@@ -24,7 +24,8 @@
 | `src/lib/roles.ts` | 1인1역: `mondayOf`, `weekOf(doc, 월요일)` → {역할ID: sid[]}, `rolesOfStudent` (자동 순환 없음, 교사가 주마다 배정) |
 | `src/ui/skins.ts` · `src/ui/ThemePicker.tsx` | 테마 12가지(동화 3·모던 3·색깔 6)와 글꼴 8가지. `applyAppearance` 가 `<html>` 에 색 토큰·모서리·그림자·버튼 모양 변수를 넣음. 글꼴은 고른 것만 내려받음(동적 import). 기본 글꼴 고운돋움은 늘 포함 |
 | `src/ui/DateNav.tsx` | 날짜 이동(‹ 날짜 › · 달력 팝업 · 오늘로). 미션은 교사·학생 모두 이것으로 날짜별로 봄. 학생 홈의 급식 카드도 고른 날짜를 따라감(`SchoolToday day`) |
-| `src/ui/tiles.ts` · `index.css .tile3d` | 바로가기 3D 타일 아이콘. 분류 11개(국어·수학·사회·과학·영어·도덕·체육·음악·미술·실과·기타) × 그림 16개, 분류 색 |
+| `src/ui/tiles.ts` · `index.css .tile3d` | 바로가기 3D 타일 아이콘. 분류 13개(UOI·국어·수학·사회·과학·영어·도덕·체육·음악·미술·실과·게임·기타) × 그림 16개, 타일 색은 바로가기 분류 색 우선 |
+| `src/ui/RichText.tsx` · `index.css .rt-*` | 공지·미션 글 꾸미기: 글 안 표시 `**굵게**` `__밑줄__` `{빨강|주황|초록|파랑|보라|형광}글{/}` → `Rich` 가 React 요소로 바꿔 보여 줌(HTML 안 씀). `FormatBar`(편집기 위 꾸미기 막대, 고른 글자를 감쌈), `plainText`(미리보기·CSV용 표시 빼기) |
 | `src/ui/calendar.tsx` | 달력 칸(MonthGrid), 일정 펼치기 |
 | `src/board/BoardApp.tsx` · `LateTimer.tsx` | 교실 화면(‘TV·편의기능’ 탭에서 엶): 공지·미션 크게(완료 인원) · 판서(키보드로 크게 쓰기 `WriteView` + 어느 화면에서나 펜·지우개·되돌리기) · 타이머 · 번호 뽑기 · 지각생 하교 타이머(사용자가 준 HTML을 React로 옮겨 교실 화면 테마 색 `--b-*` 에 맞춤, 종소리는 Web Audio 도·미·솔 5번, 서버 저장 없음), 솜사탕/칠판/검정/흰색 테마. 1인1역은 교실 화면에서 뺌 |
 | `src/student/*` | JoinFlow(코드→번호→PIN→이름), StudentPortal(홈[공지 및 미션·급식·일정]·바로가기·달력·나), PinPad |
@@ -84,6 +85,8 @@ npx firebase emulators:exec --only firestore --project demo-portal "node rules-t
 12. (11/26 밤) 학생 홈 날짜 이동 시 그날 급식 · 교실 화면에서 1인1역 빼기 · 지각생 하교 타이머 추가(학생 추가→일괄/개별 시작→종소리 5초→‘확인 완료(하교)’, 다른 메뉴로 가도 계속 잼, 머리글에 진행 인원 표시).
 
 13. (11/26 밤) 공지 기능 삭제(교사 ‘공지’ 메뉴·학생 ‘공지’ 탭·대시보드 공지) · ‘미션’→‘공지 및 미션’(한 게시물에 공지 글+미션 줄, 미션 줄마다 ‘전체/○명’ 대상 고르기) · ‘TV·편의기능’ 탭 신설(공지·미션 크게·판서(키보드로 크게 쓰기+펜)·타이머·번호 뽑기·지각생 타이머, 미션 카드의 ‘TV로 크게 보기’ 버튼은 뺌) · 학급 관리의 늘 켜 두는 TV 화면 삭제 · 학생 홈: 공지 먼저, 없으면 해야 할 일만. 실제 서버 시험 후 시험 자료 지움.
+
+14. (11/27) 공지·미션 글 꾸미기(굵게·밑줄·글자색 5가지·형광펜·꾸미기 지우기, 편집기 미리보기, 학생·교사·교실 화면 모두 반영) · 바로가기 분류에 UOI(맨 앞)·게임(기타 앞) 추가와 각 16개 그림·타일 색.
 
 ## 작업 환경 메모 (클라우드 세션)
 - 이 저장소 전용 클라우드 환경 `class-portal`(Firebase 주소들 + `open.neis.go.kr` 허용). `web.app`·`vercel.app` 주소와 글꼴 CDN은 열리지 않음 → 실제 서버 시험은 `npm run build` 후 `dist` 를 `python3 -m http.server` 로 띄워 Playwright로(서버는 진짜 Firebase에 연결됨). Playwright 는 `chromium.launch({ proxy: { server: process.env.HTTPS_PROXY, bypass: 'localhost,127.0.0.1' } })` + `ignoreHTTPSErrors` 로 띄워야 나이스·Firebase 에 닿음.

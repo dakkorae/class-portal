@@ -9,6 +9,7 @@ import { MAX_STUDENTS, NAME_MAX, SchoolInfo, Student, checkItems, itemFor, markK
 import { Badge, Button, Card, CopyButton, ErrorNote, Field, IconButton, Input, Modal, SectionTitle, Textarea, cx, toast } from '../ui/kit';
 import { schoolLabel } from '../ui/school';
 import { useData } from './data';
+import { plainText } from '../ui/RichText';
 
 export default function ClassPanel({ onClassName, onLogout, onDeleted }: { onClassName: (n: string) => void; onLogout: (all: boolean) => void; onDeleted: () => void }) {
   const d = useData();
@@ -474,7 +475,7 @@ function exportCsv(d: ReturnType<typeof useData>) {
   };
   const tasks = [...d.tasks].sort((a, b) => a.due.localeCompare(b.due));
   const cols = tasks.flatMap((t) => checkItems(t).map((i) => ({ t, i })));
-  const head = ['번호', '이름', ...cols.map(({ t, i }) => `[${t.due}] ${t.title} - ${i.text}`)];
+  const head = ['번호', '이름', ...cols.map(({ t, i }) => `[${t.due}] ${t.title} - ${plainText(i.text)}`)];
   const lines = [head.map(esc).join(',')];
   for (const s of d.students) {
     const st = d.statuses[s.sid];
